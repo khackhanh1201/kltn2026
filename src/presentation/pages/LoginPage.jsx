@@ -1,11 +1,14 @@
 import React, { useState, useEffect, useRef } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { authRepository } from '../../infrastructure/authRepository';
 import 'bootstrap/dist/css/bootstrap.min.css';
 import { Alert, Spinner } from 'react-bootstrap';
 
 const LoginPage = ({ onLoginSuccess }) => {
-  const [view, setView] = useState('login'); // 'login' hoặc 'activate'
-  const [activationStep, setActivationStep] = useState(1); // 1,2,3
+  const navigate = useNavigate();
+
+  const [view, setView] = useState('login'); // 'login' | 'activate'
+  const [activationStep, setActivationStep] = useState(1); // 1 | 2 | 3
 
   // ── Đăng nhập thường ──
   const [citizenId, setCitizenId] = useState('');
@@ -27,11 +30,124 @@ const LoginPage = ({ onLoginSuccess }) => {
   const [activationError, setActivationError] = useState('');
 
   // ── Đăng nhập QR ──
-  const [qrData, setQrData] = useState(null);           // { qrToken, qrBase64Image, expiresAt }
-  const [qrStatus, setQrStatus] = useState('idle');     // idle | generating | polling | success | expired
+  // qrPhase: 'generating' | 'polling' | 'confirmed' | 'expired' | 'error'
+  const [qrPhase, setQrPhase] = useState('generating');
+  const [qrBase64, setQrBase64] = useState('');
+  const [qrToken, setQrToken] = useState('');
   const [qrError, setQrError] = useState('');
-  const pollIntervalRef = useRef(null);
+  const pollRef = useRef(null);
 
+  // ─────────────────────────────────────────────
+  // QR: Bước 1 — Gọi API tạo mã QR mới
+  // POST /api/auth/qr-generate → nhận qrBase64Image + qrToken
+  // ─────────────────────────────────────────────
+  const generateQr = async () => {
+    if (pollRef.current) {
+      clearInterval(pollRef.current);
+      pollRef.current = null;
+    }
+
+    setQrPhase('generating');
+    setQrBase64('');
+    setQrToken('');
+    setQrError('');
+
+    try {
+      const res = await authRepository.generateQr(); // POST /api/auth/qr-generate
+      console.log('[QR] generateQr result:', res);
+
+      if (res.success) {
+        setQrBase64(res.data.qrBase64Image);
+        setQrToken(res.data.qrToken);
+        setQrPhase('polling');
+      } else {
+        setQrError(res.message || 'Không thể tạo mã QR');
+        setQrPhase('error');
+      }
+    } catch (err) {
+      console.error('[QR] generateQr error:', err);
+      setQrError(err.message || 'Lỗi kết nối khi tạo QR');
+      setQrPhase('error');
+    }
+  };
+
+  // ─────────────────────────────────────────────
+  // QR: Bước 2 — Poll GET /api/auth/qr-status?token=... mỗi 2 giây
+  // Khi app mobile quét → gọi /api/vneid/qr-confirm → backend đổi status=CONFIRMED
+  // → poll nhận CONFIRMED + JWT token → lưu + navigate('/home')
+  // ─────────────────────────────────────────────
+  useEffect(() => {
+    if (qrPhase !== 'polling' || !qrToken) return;
+
+    console.log('[QR] Bắt đầu polling với token:', qrToken);
+
+    pollRef.current = setInterval(async () => {
+      try {
+        const res = await authRepository.checkQrStatus(qrToken);
+        console.log('[QR] poll status:', res?.data?.status);
+
+        if (!res.success) return;
+
+        const { status, token } = res.data;
+
+        if (status === 'CONFIRMED' && token) {
+          // ── Đăng nhập QR thành công ──
+          console.log('[QR] CONFIRMED! token:', token);
+          clearInterval(pollRef.current);
+          pollRef.current = null;
+
+          // Lưu token vào localStorage
+          localStorage.setItem('token', token);
+          localStorage.setItem('user_info', JSON.stringify(res.data));
+
+          setQrPhase('confirmed');
+
+          if (onLoginSuccess) onLoginSuccess(res.data);
+
+          // Chuyển về trang chủ sau 1.5 giây
+          setTimeout(() => {
+            console.log('[QR] navigate /home');
+            navigate('/home');
+          }, 1500);
+
+        } else if (status === 'EXPIRED') {
+          // QR hết hạn (2 phút) → tự tạo lại
+          console.log('[QR] EXPIRED — tạo lại QR');
+          clearInterval(pollRef.current);
+          pollRef.current = null;
+          setQrPhase('expired');
+          setTimeout(generateQr, 2000);
+        }
+        // status === 'PENDING' → tiếp tục poll
+      } catch (err) {
+        console.error('[QR] poll error:', err);
+      }
+    }, 2000);
+
+    return () => {
+      if (pollRef.current) {
+        clearInterval(pollRef.current);
+        pollRef.current = null;
+      }
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [qrPhase, qrToken]);
+
+  // Tự động tạo QR khi vào view login
+  useEffect(() => {
+    if (view === 'login') generateQr();
+    return () => {
+      if (pollRef.current) {
+        clearInterval(pollRef.current);
+        pollRef.current = null;
+      }
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [view]);
+
+  // ─────────────────────────────────────────────
+  // Helpers
+  // ─────────────────────────────────────────────
   const resetActivationForm = () => {
     setCccdNumber('');
     setPhoneNumber('');
@@ -51,11 +167,20 @@ const LoginPage = ({ onLoginSuccess }) => {
     setLoginLoading(true);
     setLoginError('');
     try {
-      const data = await authRepository.login(citizenId, password);
-      localStorage.setItem('user_info', JSON.stringify(data));
-      localStorage.setItem('token', data.token || data.data?.token);
-      if (onLoginSuccess) onLoginSuccess(data);
+      const res = await authRepository.login(citizenId, password);
+      console.log('[login] full response:', res);
+
+      // Token nằm ở res.data.token theo tài liệu API
+      const token = res.data?.token || res.token;
+      if (!token) throw new Error('Không nhận được token');
+
+      localStorage.setItem('token', token);
+      localStorage.setItem('user_info', JSON.stringify(res.data || res));
+
+      if (onLoginSuccess) onLoginSuccess(res.data || res);
+      navigate('/home');
     } catch (err) {
+      console.error('[login] error:', err);
       setLoginError(err.message || 'Số định danh hoặc mật khẩu không đúng');
     } finally {
       setLoginLoading(false);
@@ -156,70 +281,9 @@ const LoginPage = ({ onLoginSuccess }) => {
     }
   };
 
-  // ── QR LOGIN ──
-  const generateNewQr = async () => {
-    setQrError('');
-    setQrStatus('generating');
-    try {
-      const response = await authRepository.generateQr();
-      if (response.success) {
-        setQrData(response.data);
-        setQrStatus('polling');
-      } else {
-        setQrError(response.message || 'Không thể tạo mã QR');
-        setQrStatus('idle');
-      }
-    } catch (err) {
-      setQrError(err.message || 'Lỗi kết nối');
-      setQrStatus('idle');
-    }
-  };
-
-  const startPolling = () => {
-    if (pollIntervalRef.current) clearInterval(pollIntervalRef.current);
-
-    pollIntervalRef.current = setInterval(async () => {
-      if (!qrData?.qrToken) return;
-
-      try {
-        const res = await authRepository.checkQrStatus(qrData.qrToken);
-        if (res.success) {
-          const { status, token } = res.data;
-
-          if (status === 'CONFIRMED' && token) {
-            localStorage.setItem('token', token);
-            if (onLoginSuccess) onLoginSuccess({ token });
-            clearInterval(pollIntervalRef.current);
-            setQrStatus('success');
-          } else if (status === 'EXPIRED') {
-            clearInterval(pollIntervalRef.current);
-            setQrStatus('expired');
-            setQrError('Mã QR hết hạn. Đang tạo mới...');
-            setTimeout(generateNewQr, 1500);
-          }
-        }
-      } catch (err) {
-        console.error('QR poll error:', err);
-      }
-    }, 3000);
-  };
-
-  useEffect(() => {
-    if (view === 'login') {
-      generateNewQr();
-    }
-    return () => {
-      if (pollIntervalRef.current) clearInterval(pollIntervalRef.current);
-    };
-  }, [view]);
-
-  useEffect(() => {
-    if (qrStatus === 'polling' && qrData?.qrToken) {
-      startPolling();
-    }
-  }, [qrStatus, qrData]);
-
-  // ── RENDER ──
+  // ─────────────────────────────────────────────
+  // RENDER
+  // ─────────────────────────────────────────────
   return (
     <div style={styles.container}>
       <div className="text-center mb-4">
@@ -234,7 +298,8 @@ const LoginPage = ({ onLoginSuccess }) => {
         <div className="card-body p-5">
           {view === 'login' ? (
             <div className="row">
-              {/* Đăng nhập thường */}
+
+              {/* ── Đăng nhập thường ── */}
               <div className="col-md-6 border-end text-dark">
                 <h5 className="fw-bold mb-4">Đăng nhập VNeID</h5>
 
@@ -283,9 +348,7 @@ const LoginPage = ({ onLoginSuccess }) => {
                     disabled={loginLoading}
                   >
                     {loginLoading ? (
-                      <>
-                        <Spinner animation="border" size="sm" /> Đang xử lý...
-                      </>
+                      <><Spinner animation="border" size="sm" /> Đang xử lý...</>
                     ) : (
                       'Đăng nhập'
                     )}
@@ -297,56 +360,81 @@ const LoginPage = ({ onLoginSuccess }) => {
                   <span
                     className="text-danger fw-bold"
                     style={{ cursor: 'pointer' }}
-                    onClick={() => {
-                      setView('activate');
-                      resetActivationForm();
-                    }}
+                    onClick={() => { setView('activate'); resetActivationForm(); }}
                   >
                     Kích hoạt ngay
                   </span>
                 </p>
               </div>
 
-              {/* Đăng nhập QR */}
+              {/* ── Đăng nhập QR ── */}
               <div className="col-md-6 d-flex flex-column align-items-center justify-content-center">
-                {qrStatus === 'generating' && <Spinner animation="border" variant="danger" className="mb-3" />}
 
-                {qrError && <Alert variant="danger" className="text-center w-100 mb-3">{qrError}</Alert>}
+                {/* Đang gọi API tạo QR */}
+                {qrPhase === 'generating' && (
+                  <>
+                    <Spinner animation="border" variant="danger" className="mb-3" />
+                    <p className="small text-muted">Đang tạo mã QR...</p>
+                  </>
+                )}
 
-                {qrStatus === 'success' && (
+                {/* Lỗi tạo QR */}
+                {qrPhase === 'error' && (
+                  <Alert variant="danger" className="text-center w-100 mb-3">{qrError}</Alert>
+                )}
+
+                {/* Quét thành công — đang chuyển trang */}
+                {qrPhase === 'confirmed' && (
                   <Alert variant="success" className="text-center w-100 mb-3">
-                    Đăng nhập thành công! Đang chuyển hướng...
+                    <i className="bi bi-check-circle-fill me-2"></i>
+                    Quét thành công! Đang chuyển về trang chủ...
                   </Alert>
                 )}
 
-                {qrData && qrStatus !== 'success' && (
+                {/* QR hết hạn — đang tạo lại */}
+                {qrPhase === 'expired' && (
+                  <Alert variant="warning" className="text-center w-100 mb-3">
+                    Mã QR hết hạn. Đang tạo mới...
+                  </Alert>
+                )}
+
+                {/* Hiển thị ảnh QR (base64 từ backend) */}
+                {(qrPhase === 'polling' || qrPhase === 'expired') && qrBase64 && (
                   <>
                     <img
-                      src={`data:image/png;base64,${qrData.qrBase64Image}`}
+                      src={`data:image/png;base64,${qrBase64}`}
                       alt="QR Code Đăng nhập VNeID"
                       className="img-fluid border p-3 rounded mb-3"
-                      style={{ maxWidth: '220px', background: '#fff' }}
+                      style={{
+                        maxWidth: '220px',
+                        background: '#fff',
+                        opacity: qrPhase === 'expired' ? 0.25 : 1,
+                        transition: 'opacity 0.3s',
+                      }}
                     />
-                    <p className="small text-muted text-center px-4 mb-2">
-                      Quét mã QR bằng ứng dụng <strong className="text-danger">VNeID</strong> trên điện thoại
+                    <p className="small text-muted text-center px-4 mb-1">
+                      Quét mã QR bằng ứng dụng{' '}
+                      <strong className="text-danger">VNeID</strong> trên điện thoại
                     </p>
-                    {qrStatus === 'expired' && (
-                      <p className="small text-warning">Mã QR hết hạn, đang tạo mới...</p>
-                    )}
-                    {qrStatus === 'polling' && (
-                      <p className="small text-secondary">Đang chờ quét mã...</p>
+                    {qrPhase === 'polling' && (
+                      <div className="small text-secondary mb-2 d-flex align-items-center gap-1">
+                        <Spinner animation="grow" size="sm" />
+                        Đang chờ quét mã...
+                      </div>
                     )}
                   </>
                 )}
 
                 <button
-                  className="btn btn-outline-danger btn-sm mt-3"
-                  onClick={generateNewQr}
-                  disabled={qrStatus === 'generating' || qrStatus === 'success'}
+                  className="btn btn-outline-danger btn-sm mt-2"
+                  onClick={generateQr}
+                  disabled={qrPhase === 'generating' || qrPhase === 'confirmed'}
                 >
+                  <i className="bi bi-arrow-clockwise me-1"></i>
                   Tạo mã QR mới
                 </button>
               </div>
+
             </div>
           ) : (
             /* ── GIAO DIỆN KÍCH HOẠT ── */
@@ -354,10 +442,7 @@ const LoginPage = ({ onLoginSuccess }) => {
               <div className="d-flex align-items-center mb-4">
                 <button
                   className="btn btn-light rounded-circle me-3"
-                  onClick={() => {
-                    setView('login');
-                    resetActivationForm();
-                  }}
+                  onClick={() => { setView('login'); resetActivationForm(); }}
                   style={{ width: '40px', height: '40px' }}
                 >
                   <i className="bi bi-arrow-left"></i>

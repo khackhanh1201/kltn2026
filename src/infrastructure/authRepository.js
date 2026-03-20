@@ -20,7 +20,11 @@ export const authRepository = {
         throw new Error(errorData.message || "Số định danh hoặc mật khẩu không đúng");
       }
 
-      return await response.json();
+      const json = await response.json();
+      console.log('[login] response:', json);
+
+      // ✅ Token nằm ở json.data.token theo tài liệu API
+      return json;
     } catch (error) {
       throw new Error(error.message || "Đăng nhập thất bại. Vui lòng thử lại.");
     }
@@ -111,7 +115,9 @@ export const authRepository = {
         throw new Error(errorData.message || "Không thể tạo mã QR");
       }
 
-      return await response.json();
+      const json = await response.json();
+      console.log('[generateQr] response:', json);
+      return json;
     } catch (error) {
       throw new Error(error.message || "Lỗi khi tạo QR. Vui lòng thử lại.");
     }
@@ -130,7 +136,9 @@ export const authRepository = {
         throw new Error(errorData.message || "Không thể kiểm tra trạng thái QR");
       }
 
-      return await response.json();
+      const json = await response.json();
+      console.log('[checkQrStatus] response:', json); // ← xem status thay đổi không
+      return json;
     } catch (error) {
       throw new Error(error.message || "Lỗi khi kiểm tra QR status.");
     }
