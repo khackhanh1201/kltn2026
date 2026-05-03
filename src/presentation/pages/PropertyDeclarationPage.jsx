@@ -1,121 +1,144 @@
-import React, { useState } from 'react';
-import LandTaxLayout from '../components/LandTaxLayout';
+import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
+import DashboardLayout from '../components/LandTaxLayout';
+import LandTaxLayout from '../components/LandTaxLayout';
+
+const API_BASE = 'http://localhost:9090/api';
+const getAuth  = () => ({ 'Content-Type': 'application/json', Authorization: `Bearer ${localStorage.getItem('token')}` });
+
+const formatDate = (v) => v ? new Date(v).toLocaleString('vi-VN', { hour: '2-digit', minute: '2-digit', day: '2-digit', month: '2-digit', year: 'numeric' }) : '—';
+
+const STATUS_CONFIG = {
+  PENDING:  { label: 'Chờ duyệt',  bg: '#fef9c3', color: '#ca8a04', icon: 'bi-clock' },
+  APPROVED: { label: 'Đã duyệt',   bg: '#dcfce7', color: '#16a34a', icon: 'bi-check-circle' },
+  REJECTED: { label: 'Bị từ chối', bg: '#fee2e2', color: '#dc2626', icon: 'bi-x-circle' },
+};
+
+const StatusBadge = ({ status }) => {
+  const cfg = STATUS_CONFIG[status] || { label: status, bg: '#f3f4f6', color: '#6b7280', icon: 'bi-circle' };
+  return (
+    <span style={{ display: 'inline-flex', alignItems: 'center', gap: 5, padding: '4px 12px', borderRadius: 20, fontSize: 12, fontWeight: 600, background: cfg.bg, color: cfg.color }}>
+      <i className={`bi ${cfg.icon}`} style={{ fontSize: 12 }} /> {cfg.label}
+    </span>
+  );
+};
+
+const TABS = [
+  { key: 'PENDING',  label: 'Chờ xử lý' },
+  { key: 'APPROVED', label: 'Đang xử lý' },
+  { key: 'DONE',     label: 'Đã xử lý' },
+];
 
 const PropertyDeclarationPage = () => {
   const navigate = useNavigate();
-  const user = JSON.parse(localStorage.getItem('user_info')) || { id: 3, fullName: 'MAI NHƯ YẾN' };
-  
-  // State quản lý form dựa trên PropertyDeclarationEntity
-  const [formData, setFormData] = useState({
-    userId: user.id,
-    landPlotId: '', // ID thửa đất chọn từ danh sách
-    fiscalYear: new Date().getFullYear(),
-    declaredArea: '',
-    usagePurpose: 'Đất ở',
-    fullName: user.fullName,
-    identityNumber: user.citizenId, // Ví dụ
-    address: '',
-    certificateNumber: '',
-    issueDate: ''
-  });
+  const [declarations, setDeclarations] = useState([]);
+  const [loading,      setLoading]      = useState(true);
+  const [search,       setSearch]       = useState('');
+  const [tab,          setTab]          = useState('PENDING');
 
-  const handleChange = (e) => {
-    const { name, value } = e.target;
-    setFormData(prev => ({ ...prev, [name]: value }));
-  };
+  useEffect(() => { fetchDeclarations(); }, []);
 
-  const handleSubmit = async (e) => {
-    e.preventDefault();
+  const fetchDeclarations = async () => {
+    setLoading(true);
     try {
-      // Gọi API submit declaration
-      const response = await fetch('http://localhost:9090/api/property-declarations/submit', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          userId: formData.userId,
-          landPlotId: 1, // Giả định ID thửa đất đang chọn
-          fiscalYear: formData.fiscalYear,
-          declaredArea: parseFloat(formData.declaredArea),
-          usagePurpose: formData.usagePurpose
-        })
-      });
-
-      const result = await response.json();
-      if (response.ok) {
-        alert(`Gửi hồ sơ thành công! Mã hồ sơ: ${result.declarationId}`); //
-        navigate('/land-tax');
-      }
-    } catch (error) {
-      console.error("Lỗi gửi hồ sơ:", error);
-    }
+      const res  = await fetch(`${API_BASE}/property-declarations/list`, { headers: getAuth() });
+      const json = await res.json();
+      setDeclarations(Array.isArray(json) ? json : (json.data || []));
+    } catch {}
+    finally { setLoading(false); }
   };
+
+  const getTabData = () => {
+    const q = search.toLowerCase();
+    return declarations.filter(d => {
+      const matchSearch = !q || (d.declarationType||d.type||'').toLowerCase().includes(q) || String(d.id||'').includes(q);
+      const status = d.status || 'PENDING';
+      const matchTab = tab === 'PENDING'  ? status === 'PENDING' :
+                       tab === 'APPROVED' ? status === 'APPROVED' :
+                       status === 'REJECTED';
+      return matchSearch && matchTab;
+    });
+  };
+
+  const getLabel   = (d) => d.declarationType || d.type || 'Đăng ký sang tên';
+  const getAsset   = (d) => d.address || d.parcelAddress || `Thửa đất tại ${d.parcelId || '—'}`;
+  const getCode    = (d) => d.id ? `HS-${String(d.id).padStart(5,'0')}` : '—';
+  const tabData    = getTabData();
+  const pendingCount = declarations.filter(d => (d.status||'PENDING') === 'PENDING').length;
 
   return (
-    <LandTaxLayout user={user}>
-      <div className="text-start">
-        {/* Tiêu đề trang */}
-        <div className="card border-0 shadow-sm p-4 mb-4" style={{ borderRadius: '15px' }}>
-          <h4 className="fw-bold mb-1">Kê khai đất đai</h4>
-          <p className="text-muted small mb-0">Đăng ký thông tin đất đai mới hoặc cập nhật thông tin</p>
+    <LandTaxLayout>
+      {/* Header */}
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 24 }}>
+        <div>
+          <h3 style={{ fontWeight: 800, fontSize: 26, color: '#0f172a', margin: 0 }}>Hồ sơ khai báo</h3>
+          <p style={{ color: '#94a3b8', fontSize: 13, margin: '4px 0 0' }}>Quản lý và theo dõi hồ sơ đất đai của bạn</p>
+        </div>
+        <div style={{ display: 'flex', gap: 10 }}>
+          <div style={{ position: 'relative' }}>
+            <i className="bi bi-search" style={{ position: 'absolute', left: 12, top: '50%', transform: 'translateY(-50%)', color: '#94a3b8', fontSize: 13 }} />
+            <input value={search} onChange={e => setSearch(e.target.value)} placeholder="Tìm kiếm mã hồ sơ, tên hồ sơ..."
+              style={{ padding: '9px 14px 9px 36px', border: '1px solid #e2e8f0', borderRadius: 8, fontSize: 13, outline: 'none', width: 260 }} />
+          </div>
+          <button onClick={() => navigate('/submit-declaration')}
+            style={{ display: 'flex', alignItems: 'center', gap: 7, padding: '9px 18px', background: '#c8102e', color: '#fff', border: 'none', borderRadius: 8, fontSize: 13, fontWeight: 700, cursor: 'pointer' }}>
+            <i className="bi bi-file-earmark-plus" /> Tạo hồ sơ
+          </button>
+        </div>
+      </div>
+
+      {/* Table card */}
+      <div style={{ background: '#fff', borderRadius: 12, border: '1px solid #e2e8f0', overflow: 'hidden' }}>
+        {/* Tabs */}
+        <div style={{ display: 'flex', borderBottom: '1px solid #e2e8f0' }}>
+          {TABS.map(t => (
+            <button key={t.key} onClick={() => setTab(t.key)} style={{
+              flex: 1, padding: '14px 0', background: 'none', border: 'none', cursor: 'pointer',
+              fontSize: 14, fontWeight: tab === t.key ? 700 : 500,
+              color: tab === t.key ? '#c8102e' : '#64748b',
+              borderBottom: tab === t.key ? '2px solid #c8102e' : '2px solid transparent',
+              marginBottom: -1, transition: 'all 0.2s',
+              display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8,
+            }}>
+              {t.label}
+              {t.key === 'PENDING' && pendingCount > 0 && (
+                <span style={{ background: '#c8102e', color: '#fff', fontSize: 11, fontWeight: 700, padding: '1px 7px', borderRadius: 10 }}>{pendingCount}</span>
+              )}
+            </button>
+          ))}
         </div>
 
-        <form onSubmit={handleSubmit}>
-          {/* Thông tin chủ sở hữu */}
-          <div className="card border-0 shadow-sm p-4 mb-4" style={{ borderRadius: '15px' }}>
-            <h6 className="fw-bold mb-4 border-bottom pb-2">Thông tin chủ sở hữu</h6>
-            <div className="row g-3">
-              <div className="col-md-6 text-start">
-                <label className="form-label small fw-bold">Họ và tên <span className="text-danger">*</span></label>
-                <input type="text" className="form-control form-control-sm" name="fullName" value={formData.fullName} onChange={handleChange} placeholder="Nhập họ và tên" required />
-              </div>
-              <div className="col-md-6 text-start">
-                <label className="form-label small fw-bold">Số định danh cá nhân <span className="text-danger">*</span></label>
-                <input type="text" className="form-control form-control-sm" name="identityNumber" value={formData.identityNumber} onChange={handleChange} placeholder="Nhập số định danh" required />
-              </div>
-            </div>
-          </div>
+        {/* Table header */}
+        <div style={{ display: 'grid', gridTemplateColumns: '2fr 3fr 1.5fr 1.5fr', gap: 0, background: '#fafafa', borderBottom: '1px solid #e2e8f0' }}>
+          {['LOẠI THỦ TỤC', 'TÀI SẢN LIÊN QUAN', 'NGÀY NỘP', 'TRẠNG THÁI'].map(h => (
+            <div key={h} style={{ padding: '12px 16px', fontSize: 11, fontWeight: 700, color: '#64748b', letterSpacing: '0.06em' }}>{h}</div>
+          ))}
+        </div>
 
-          {/* Thông tin đất đai */}
-          <div className="card border-0 shadow-sm p-4 mb-4" style={{ borderRadius: '15px' }}>
-            <h6 className="fw-bold mb-4 border-bottom pb-2">Thông tin đất đai</h6>
-            <div className="row g-3">
-              <div className="col-12 text-start">
-                <label className="form-label small fw-bold">Địa chỉ thửa đất <span className="text-danger">*</span></label>
-                <input type="text" className="form-control form-control-sm" name="address" onChange={handleChange} placeholder="Nhập địa chỉ đầy đủ" required />
+        {loading ? (
+          <div style={{ textAlign: 'center', padding: '60px', color: '#94a3b8' }}>
+            <div className="spinner-border text-danger" role="status" />
+          </div>
+        ) : tabData.length === 0 ? (
+          <div style={{ textAlign: 'center', padding: '60px', color: '#94a3b8' }}>
+            <i className="bi bi-inbox" style={{ fontSize: 36 }} />
+            <p style={{ marginTop: 12, fontSize: 13 }}>Không có hồ sơ nào</p>
+          </div>
+        ) : (
+          tabData.map((d, i) => (
+            <div key={d.id || i} style={{ display: 'grid', gridTemplateColumns: '2fr 3fr 1.5fr 1.5fr', borderBottom: i < tabData.length - 1 ? '1px solid #f1f5f9' : 'none' }}
+              onMouseEnter={e => e.currentTarget.style.background = '#fafafa'}
+              onMouseLeave={e => e.currentTarget.style.background = 'transparent'}>
+              <div style={{ padding: '16px' }}>
+                <p style={{ fontWeight: 700, fontSize: 14, color: '#0f172a', margin: 0 }}>{getLabel(d)}</p>
+                <p style={{ fontSize: 12, color: '#94a3b8', margin: '3px 0 0' }}>{getCode(d)}</p>
               </div>
-              <div className="col-md-6 text-start">
-                <label className="form-label small fw-bold">Diện tích (m²) <span className="text-danger">*</span></label>
-                <input type="number" className="form-control form-control-sm" name="declaredArea" onChange={handleChange} placeholder="Nhập diện tích" required />
-              </div>
-              <div className="col-md-6 text-start">
-                <label className="form-label small fw-bold">Loại đất <span className="text-danger">*</span></label>
-                <select className="form-select form-select-sm" name="usagePurpose" value={formData.usagePurpose} onChange={handleChange}>
-                  <option value="ODT">Đất ở tại đô thị (ODT)</option>
-                  <option value="CLN">Đất trồng cây lâu năm (CLN)</option>
-                </select>
-              </div>
-              <div className="col-12 text-start">
-                <label className="form-label small fw-bold">Mục đích sử dụng <span className="text-danger">*</span></label>
-                <input type="text" className="form-control form-control-sm" name="usagePurposeNote" onChange={handleChange} placeholder="Nhập mục đích sử dụng" />
-              </div>
-              <div className="col-md-6 text-start">
-                <label className="form-label small fw-bold">Số giấy chứng nhận</label>
-                <input type="text" className="form-control form-control-sm" name="certificateNumber" onChange={handleChange} placeholder="Nhập số giấy chứng nhận" />
-              </div>
-              <div className="col-md-6 text-start">
-                <label className="form-label small fw-bold">Ngày cấp</label>
-                <input type="date" className="form-control form-control-sm" name="issueDate" onChange={handleChange} />
-              </div>
+              <div style={{ padding: '16px', color: '#475569', fontSize: 13, display: 'flex', alignItems: 'center' }}>{getAsset(d)}</div>
+              <div style={{ padding: '16px', color: '#475569', fontSize: 13, display: 'flex', alignItems: 'center' }}>{formatDate(d.createdAt || d.submittedAt)}</div>
+              <div style={{ padding: '16px', display: 'flex', alignItems: 'center' }}><StatusBadge status={d.status || 'PENDING'} /></div>
             </div>
-          </div>
-
-          {/* Nút thao tác */}
-          <div className="d-flex gap-2 mb-5">
-            <button type="submit" className="btn btn-danger px-4 rounded-pill fw-bold">Gửi hồ sơ kê khai</button>
-            <button type="reset" className="btn btn-outline-secondary px-4 rounded-pill fw-bold" onClick={() => setFormData({...formData, address: '', declaredArea: '', certificateNumber: ''})}>Làm mới</button>
-          </div>
-        </form>
+          ))
+        )}
       </div>
     </LandTaxLayout>
   );

@@ -1,58 +1,115 @@
 import React from 'react';
+import { useNavigate } from 'react-router-dom';
 import MainLayout from '../components/MainLayout';
 
 const HomePage = () => {
-  // Giả sử lấy từ localStorage sau khi đăng nhập thành công
-  const user = JSON.parse(localStorage.getItem('user_info'));
+  const navigate = useNavigate();
+  const user = JSON.parse(localStorage.getItem('user_info') || '{}');
+
+  const menuItems = [
+    {
+      title: 'Thuế đất',
+      desc: 'Tra cứu, kê khai và nộp thuế đất trực tuyến',
+      icon: 'bi-house-gear',
+      color: '#f97316',
+      bg: '#fff7ed',
+      onClick: () => window.open('/land-tax', '_blank'),
+    },
+    {
+      title: 'Kê khai tài sản',
+      desc: 'Kê khai thông tin bất động sản đang sở hữu',
+      icon: 'bi-file-earmark-text',
+      color: '#3b82f6',
+      bg: '#eff6ff',
+      onClick: () => navigate('/property-declaration'),
+    },
+    {
+      title: 'Khiếu nại',
+      desc: 'Gửi khiếu nại về thuế đất, hồ sơ bất động sản',
+      icon: 'bi-chat-left-dots',
+      color: '#ef4444',
+      bg: '#fff1f2',
+      onClick: () => navigate('/complaint'),
+    },
+    {
+      title: 'Tin tức - Sự kiện',
+      desc: 'Tin tức nổi bật mới nhất trong ngày',
+      icon: 'bi-newspaper',
+      color: '#eab308',
+      bg: '#fefce8',
+      onClick: () => {},
+    },
+    {
+      title: 'Cảnh báo lừa đảo',
+      desc: 'Cảnh báo lừa đảo mới nhất trong ngày',
+      icon: 'bi-shield-exclamation',
+      color: '#8b5cf6',
+      bg: '#f5f3ff',
+      onClick: () => {},
+    },
+    {
+      title: 'Câu hỏi thường gặp',
+      desc: 'Những thắc mắc của người dùng về ứng dụng VNeID',
+      icon: 'bi-question-circle',
+      color: '#06b6d4',
+      bg: '#ecfeff',
+      onClick: () => {},
+    },
+  ];
 
   return (
     <MainLayout user={user}>
-      {/* Banner Section */}
+      {/* Banner */}
       <div className="mb-4 shadow-sm" style={styles.banner}>
         <div style={styles.bannerOverlay}>
-          <h1 className="display-4 fw-light italic" style={{fontFamily: 'cursive'}}>Welcome to Viet Nam</h1>
+          <h1 className="display-4 fw-light" style={{ fontFamily: 'cursive' }}>Welcome to Viet Nam</h1>
         </div>
       </div>
 
-      {/* Welcome Message */}
-      <div className="card border-0 shadow-sm p-4 mb-4" style={{borderRadius: '20px'}}>
-        <h3 className="fw-bold">Chào buổi tối, {user.fullName}!</h3>
+      {/* Welcome */}
+      <div className="card border-0 shadow-sm p-4 mb-4" style={{ borderRadius: 20 }}>
+        <h3 className="fw-bold">Chào, {user?.fullName || user?.data?.fullName || 'bạn'}!</h3>
         <p className="text-muted mb-0">Chào mừng bạn đến với Trang thông tin định danh điện tử</p>
       </div>
 
       {/* Grid Menu */}
       <div className="row g-4">
-        <MenuCard title="Tin tức - Sự kiện" desc="Tin tức nổi bật mới nhất trong ngày" icon="bi-file-earmark-text" color="#ffc107" />
-        <MenuCard title="Cảnh báo lừa đảo" desc="Cảnh báo lừa đảo mới nhất trong ngày" icon="bi-shield-exclamation" color="#ffc107" />
-        <MenuCard title="Câu hỏi thường gặp" desc="Những thắc mắc của người dùng về ứng dụng VNeID" icon="bi-question-circle" color="#ffc107" />
+        {menuItems.map((item, i) => (
+          <div key={i} className="col-md-4">
+            <div
+              className="card border-0 shadow-sm h-100 p-4"
+              style={{ borderRadius: 20, cursor: 'pointer', transition: 'transform 0.2s, box-shadow 0.2s' }}
+              onClick={item.onClick}
+              onMouseEnter={e => { e.currentTarget.style.transform = 'translateY(-3px)'; e.currentTarget.style.boxShadow = '0 8px 24px rgba(0,0,0,0.1)'; }}
+              onMouseLeave={e => { e.currentTarget.style.transform = 'none'; e.currentTarget.style.boxShadow = ''; }}
+            >
+              <div style={{ width: 44, height: 44, borderRadius: 12, background: item.bg, display: 'flex', alignItems: 'center', justifyContent: 'center', marginBottom: 12 }}>
+                <i className={`bi ${item.icon}`} style={{ fontSize: 22, color: item.color }} />
+              </div>
+              <h5 className="fw-bold">{item.title}</h5>
+              <p className="small text-muted mb-4">{item.desc}</p>
+              <div className="mt-auto d-flex justify-content-end">
+                <span style={{ color: item.color, fontWeight: 700, fontSize: 13 }}>
+                  Xem ngay <i className="bi bi-arrow-right" />
+                </span>
+              </div>
+            </div>
+          </div>
+        ))}
       </div>
     </MainLayout>
   );
 };
 
-// Component con cho các thẻ menu
-const MenuCard = ({ title, desc, icon, color }) => (
-  <div className="col-md-4">
-    <div className="card border-0 shadow-sm h-100 p-4" style={{borderRadius: '20px', position: 'relative'}}>
-      <h5 className="fw-bold">{title}</h5>
-      <p className="small text-muted mb-4">{desc}</p>
-      <div className="mt-auto d-flex justify-content-between align-items-center">
-        <span className="text-danger fw-bold small cursor-pointer">Xem ngay</span>
-        <i className={`bi ${icon}`} style={{fontSize: '40px', color: color, opacity: 0.8}}></i>
-      </div>
-    </div>
-  </div>
-);
-
 const styles = {
   banner: {
-    height: '250px',
-    borderRadius: '25px',
+    height: 250,
+    borderRadius: 25,
     backgroundImage: `url('https://images.unsplash.com/photo-1528127269322-539801943592?ixlib=rb-4.0.3&auto=format&fit=crop&w=1170&q=80')`,
     backgroundSize: 'cover',
     backgroundPosition: 'center',
     overflow: 'hidden',
-    position: 'relative'
+    position: 'relative',
   },
   bannerOverlay: {
     backgroundColor: 'rgba(0,0,0,0.2)',
@@ -60,8 +117,8 @@ const styles = {
     display: 'flex',
     alignItems: 'center',
     justifyContent: 'center',
-    color: 'white'
-  }
+    color: 'white',
+  },
 };
 
 export default HomePage;

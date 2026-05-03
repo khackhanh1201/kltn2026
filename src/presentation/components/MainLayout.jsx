@@ -36,12 +36,13 @@ const MainLayout = ({ children, user }) => {
         </div>
         
         <div className="d-flex align-items-center text-white position-relative" ref={dropdownRef}>
-          {/* Badge thông báo số 2 */}
+          {/* Badge thông báo */}
           <div className="position-relative me-4 cursor-pointer">
             <i className="bi bi-bell fs-5"></i>
             <span className="position-absolute top-0 start-100 translate-middle badge rounded-pill bg-warning text-dark" style={{fontSize: '10px', padding: '2px 5px'}}>2</span>
           </div>
 
+          {/* User Info + Avatar */}
           <div className="d-flex align-items-center cursor-pointer" onClick={() => setIsDropdownOpen(!isDropdownOpen)}>
             <div className="me-3 text-end">
               <div className="fw-bold text-uppercase" style={{fontSize: '14px'}}>{user?.fullName || 'NGUYỄN VĂN TEST'}</div>
@@ -80,7 +81,7 @@ const MainLayout = ({ children, user }) => {
       </header>
 
       <div style={styles.bodyContainer}>
-        {/* Sidebar Trang chủ - ĐÃ FIX ONCLICK ĐỂ CHUYỂN TRANG */}
+        {/* Sidebar */}
         <nav style={styles.sidebar}>
           <div className="d-flex flex-column h-100 w-100">
             <NavItem 
@@ -89,19 +90,22 @@ const MainLayout = ({ children, user }) => {
               label="Trang chủ" 
               onClick={() => navigate('/home')} 
             />
+            
+            {/* Đất đai - Mở tab mới */}
             <NavItem 
               active={location.pathname === '/land-tax'} 
               icon="bi-map" 
-              label="Thuế đất đai" 
-              onClick={() => navigate('/land-tax')} 
+              label="Đất đai" 
+              onClick={() => window.open('/land-tax', '_blank')} 
             />
+
             <NavItem icon="bi-newspaper" label="Tin tức" />
             <NavItem icon="bi-building" label="Tổ chức" />
             <NavItem icon="bi-gear" label="Cài đặt" />
           </div>
         </nav>
 
-        {/* Nội dung trang chủ */}
+        {/* Nội dung chính */}
         <main style={styles.content}>{children}</main>
       </div>
     </div>
@@ -109,7 +113,7 @@ const MainLayout = ({ children, user }) => {
 };
 
 /**
- * Component NavItem: Đảm bảo nhận onClick và gắn vào thẻ div
+ * Component NavItem
  */
 const NavItem = ({ active, icon, label, onClick }) => (
   <div 
