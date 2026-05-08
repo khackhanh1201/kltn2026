@@ -1,9 +1,9 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import DashboardLayout from '../components/LandTaxLayout';
-import LandTaxLayout from '../components/LandTaxLayout';
+// import DashboardLayout from '../../components/DashboardLayout';
+import LandTaxLayout from '../../components/LandTaxLayout';
 
-const API_BASE = 'http://localhost:9090/api';
+const API_BASE = 'http://localhost:8080/api';
 const getAuth  = () => ({ 'Content-Type': 'application/json', Authorization: `Bearer ${localStorage.getItem('token')}` });
 
 const formatDate = (v) => v ? new Date(v).toLocaleString('vi-VN', { hour: '2-digit', minute: '2-digit', day: '2-digit', month: '2-digit', year: 'numeric' }) : '—';
@@ -25,8 +25,8 @@ const StatusBadge = ({ status }) => {
 
 const TABS = [
   { key: 'PENDING',  label: 'Chờ xử lý' },
-  { key: 'APPROVED', label: 'Đang xử lý' },
-  { key: 'DONE',     label: 'Đã xử lý' },
+  { key: 'APPROVED', label: 'Đã duyệt' },
+  { key: 'REJECTED', label: 'Bị từ chối' },
 ];
 
 const PropertyDeclarationPage = () => {
@@ -41,7 +41,9 @@ const PropertyDeclarationPage = () => {
   const fetchDeclarations = async () => {
     setLoading(true);
     try {
-      const res  = await fetch(`${API_BASE}/property-declarations/list`, { headers: getAuth() });
+      const res  = await fetch(`${API_BASE}/tax/declarations/my-history`, {
+  headers: getAuth()
+});
       const json = await res.json();
       setDeclarations(Array.isArray(json) ? json : (json.data || []));
     } catch {}
@@ -51,7 +53,7 @@ const PropertyDeclarationPage = () => {
   const getTabData = () => {
     const q = search.toLowerCase();
     return declarations.filter(d => {
-      const matchSearch = !q || (d.declarationType||d.type||'').toLowerCase().includes(q) || String(d.id||'').includes(q);
+      const matchSearch = !q || (d.declarationType||d.type||'').toLowerCase().includes(q) || String(d.recordId ||'').includes(q);
       const status = d.status || 'PENDING';
       const matchTab = tab === 'PENDING'  ? status === 'PENDING' :
                        tab === 'APPROVED' ? status === 'APPROVED' :
@@ -60,9 +62,12 @@ const PropertyDeclarationPage = () => {
     });
   };
 
-  const getLabel   = (d) => d.declarationType || d.type || 'Đăng ký sang tên';
+  const getLabel   = (d) => d.declaredPurpose || 'Khai báo thuế đất';
   const getAsset   = (d) => d.address || d.parcelAddress || `Thửa đất tại ${d.parcelId || '—'}`;
-  const getCode    = (d) => d.id ? `HS-${String(d.id).padStart(5,'0')}` : '—';
+  const getCode = (d) =>
+  d.recordId
+    ? `HS-${String(d.recordId).padStart(5,'0')}`
+    : '—';
   const tabData    = getTabData();
   const pendingCount = declarations.filter(d => (d.status||'PENDING') === 'PENDING').length;
 
@@ -126,7 +131,7 @@ const PropertyDeclarationPage = () => {
           </div>
         ) : (
           tabData.map((d, i) => (
-            <div key={d.id || i} style={{ display: 'grid', gridTemplateColumns: '2fr 3fr 1.5fr 1.5fr', borderBottom: i < tabData.length - 1 ? '1px solid #f1f5f9' : 'none' }}
+            <div key={d.recordId  || i} style={{ display: 'grid', gridTemplateColumns: '2fr 3fr 1.5fr 1.5fr', borderBottom: i < tabData.length - 1 ? '1px solid #f1f5f9' : 'none' }}
               onMouseEnter={e => e.currentTarget.style.background = '#fafafa'}
               onMouseLeave={e => e.currentTarget.style.background = 'transparent'}>
               <div style={{ padding: '16px' }}>

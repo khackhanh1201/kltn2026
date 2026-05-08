@@ -1,9 +1,9 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 // import DashboardLayout from '../components/DashboardLayout';
-import LandTaxLayout from '../components/LandTaxLayout';
+import LandTaxLayout from '../../components/LandTaxLayout';
 
-const API_BASE = 'http://localhost:9090/api';
+const API_BASE = 'http://localhost:8080/api';
 const getAuth  = () => ({ 'Content-Type': 'application/json', Authorization: `Bearer ${localStorage.getItem('token')}` });
 
 const formatVND  = (v) => v != null ? Number(v).toLocaleString('vi-VN') + ' VND' : '—';
@@ -46,7 +46,7 @@ const TaxPage = () => {
   useEffect(() => {
     const q = search.toLowerCase();
     setFiltered(records.filter(r => {
-      const matchTab    = tab === 'all' ? true : tab === 'unpaid' ? (r.status === 'PENDING' || r.status === 'OVERDUE') : r.status === 'PAID';
+      const matchTab    = tab === 'all' ? true : tab === 'unpaid' ? (r.status === 'UNPAID' || r.status === 'OVERDUE') : r.status === 'PAID';
       const matchSearch = !q || (r.parcelCode||'').toLowerCase().includes(q) || getTaxLabel(r).toLowerCase().includes(q);
       const matchName   = !adv.name   || getTaxLabel(r).toLowerCase().includes(adv.name.toLowerCase());
       const matchYear   = !adv.year   || String(r.taxYear) === adv.year;
@@ -57,26 +57,53 @@ const TaxPage = () => {
   }, [records, tab, search, adv]);
 
   const fetchRecords = async () => {
-    setLoading(true);
-    try {
-      const res  = await fetch(`${API_BASE}/tax/records`, { headers: getAuth() });
-      const json = await res.json();
-      setRecords(json.data || []);
-    } catch {}
-    finally { setLoading(false); }
-  };
+  setLoading(true);
 
-  const openDetail = async (r) => {
-    setSelected(r);
-    setDeclDetail({});
-    if (r.declarationId) {
-      try {
-        const res  = await fetch(`${API_BASE}/tax/declarations/${r.declarationId}`, { headers: getAuth() });
-        const json = await res.json();
-        setDeclDetail(json.data || {});
-      } catch {}
-    }
-  };
+  try {
+    const [unpaidRes, paidRes, declRes] = await Promise.all([
+      fetch(`${API_BASE}/tax/bills/unpaid`, { headers: getAuth() }),
+      fetch(`${API_BASE}/tax/bills/paid`, { headers: getAuth() }),
+      fetch(`${API_BASE}/tax/declarations/my-history`, { headers: getAuth() }),
+    ]);
+
+    const unpaidBills = await unpaidRes.json();
+    const paidBills   = await paidRes.json();
+    const declarations = await declRes.json();
+
+    const allBills = [...unpaidBills, ...paidBills];
+
+    const merged = allBills.map(bill => {
+      const decl = declarations.find(
+        d => d.id === bill.declarationId
+      );
+
+      return {
+  taxId: bill.billId,
+  declarationId: bill.declarationId,
+
+  taxAmount: bill.amount,
+  status: bill.status,
+
+  taxYear: decl?.taxYear || '—',
+  parcelId: decl?.parcelId || '—',
+  declaredArea: decl?.declaredArea || '—',
+
+  dueDate: null,
+};
+    });
+
+    setRecords(merged);
+
+  } catch (e) {
+    console.error(e);
+  } finally {
+    setLoading(false);
+  }
+};
+
+  const openDetail = (r) => {
+  setSelected(r);
+};
 
   return (
     <LandTaxLayout>
@@ -146,7 +173,7 @@ const TaxPage = () => {
                         onMouseLeave={e => e.currentTarget.style.color = '#94a3b8'}>
                         <i className="bi bi-eye" />
                       </button>
-                      {(r.status === 'PENDING' || r.status === 'OVERDUE') && (
+                      {(r.status === 'UNPAID' || r.status === 'OVERDUE') && (
                         <button style={{ background: '#c8102e', border: 'none', cursor: 'pointer', color: '#fff', borderRadius: 8, width: 32, height: 32, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 15 }}>
                           <i className="bi bi-credit-card" />
                         </button>
@@ -216,10 +243,10 @@ const TaxPage = () => {
                     <span style={{ fontWeight: 700, fontSize: 14 }}>Chi tiết tính thuế</span>
                   </div>
                   {[
-                    { label: 'Diện tích:', value: declDetail.declaredArea != null ? `${declDetail.declaredArea} m²` : '—' },
+                    { label: 'Diện tích:', value: selected.declaredArea != null ? `${selected.declaredArea} m²` : '—' },
                     { label: 'Giá đất:', value: '35.000.000 đ/m²' },
                     { label: 'Thuế suất:', value: '0.03%' },
-                    { label: 'Công thức:', value: `Diện tích (${declDetail.declaredArea || '—'}m2) x Giá đất (35tr/m2) x Thuế suất (0.03%)`, italic: true },
+                    { label: 'Công thức:', value: `Diện tích (${selected.declaredArea || '—'}m2) x Giá đất (35tr/m2) x Thuế suất (0.03%)`, italic: true },
                   ].map(row => (
                     <div key={row.label} style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 8, fontSize: 13 }}>
                       <span style={{ color: '#64748b' }}>{row.label}</span>
@@ -240,7 +267,7 @@ const TaxPage = () => {
                 style={{ padding: '10px 18px', background: '#fff', color: '#475569', border: '1px solid #e2e8f0', borderRadius: 8, fontSize: 13, fontWeight: 600, cursor: 'pointer' }}>
                 Đóng
               </button>
-              {(selected.status === 'PENDING' || selected.status === 'OVERDUE') && (
+              {(selected.status === 'UNPAID' || selected.status === 'OVERDUE') && (
                 <button style={{ padding: '10px 18px', background: '#16a34a', color: '#fff', border: 'none', borderRadius: 8, fontSize: 13, fontWeight: 700, cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 6 }}>
                   <i className="bi bi-credit-card" /> Thanh toán ngay
                 </button>

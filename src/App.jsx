@@ -10,15 +10,15 @@ import {
 // Import các trang
 import LoginPage from './presentation/pages/LoginPage';
 import HomePage from './presentation/pages/HomePage';
-import LandTaxPage from './presentation/pages/LandTaxPage';
-import TaxPage from './presentation/pages/TaxPage';
-import LandInformationPage from './presentation/pages/LandInformationPage';
-import PropertyDeclarationPage from './presentation/pages/PropertyDeclarationPage';
-import SubmitDeclarationPage from './presentation/pages/SubmitDeclarationPage';
-import ComplaintPage from './presentation/pages/ComplaintPage';
-import PaymentPage from './presentation/pages/PaymentPage';
-import SearchPage from './presentation/pages/SearchPage';
-import AccountPage from './presentation/pages/AccountPage';   // ← Trang Tài khoản
+import LandTaxPage from './presentation/pages/user/LandTaxPage';
+import TaxPage from './presentation/pages/user/TaxPage';
+import LandInformationPage from './presentation/pages/user/LandInformationPage';
+import PropertyDeclarationPage from './presentation/pages/user/PropertyDeclarationPage';
+import SubmitDeclarationPage from './presentation/pages/user/SubmitDeclarationPage';
+import ComplaintPage from './presentation/pages/user/ComplaintPage';
+import PaymentPage from './presentation/pages/user/PaymentPage';
+import SearchPage from './presentation/pages/user/SearchPage';
+import AccountPage from './presentation/pages/user/AccountPage';   // ← Trang Tài khoản
 
 import 'bootstrap/dist/css/bootstrap.min.css';
 import 'bootstrap-icons/font/bootstrap-icons.css';

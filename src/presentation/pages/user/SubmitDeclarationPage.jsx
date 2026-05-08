@@ -1,8 +1,8 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import LandTaxLayout from '../components/LandTaxLayout';
+import LandTaxLayout from '../../components/LandTaxLayout';
 
-const API_BASE = 'http://localhost:9090/api';
+const API_BASE = 'http://localhost:8080/api';
 
 const STEPS = [
   { id: 1, label: 'XÁC THỰC' },
@@ -58,7 +58,7 @@ const SubmitDeclarationPage = () => {
   useEffect(() => {
     if (step === 2 && userId && landPlots.length === 0) {
       setLoadingPlots(true);
-      fetch(`${API_BASE}/land-plots/my-land-plots?ownerId=${userId}`, {
+      fetch(`${API_BASE}/land-parcels/my-assets`, {
         headers: { Authorization: `Bearer ${localStorage.getItem('token')}` },
       })
         .then(res => res.ok ? res.json() : [])
@@ -94,21 +94,19 @@ const SubmitDeclarationPage = () => {
 
     try {
       const payload = {
-        userId: Number(userId),
-        landPlotId: Number(form.landPlotId),
-        declaredArea: 0,
-        usagePurpose: form.declarationType,
-        fiscalYear: new Date().getFullYear(),
-      };
+  landParcelId: Number(form.landPlotId),
+  declarationType: form.declarationType,
+  content: form.content,
+};
 
-      const res = await fetch(`${API_BASE}/property-declarations/submit`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          Authorization: `Bearer ${localStorage.getItem('token')}`,
-        },
-        body: JSON.stringify(payload),
-      });
+      const res = await fetch(`${API_BASE}/tax/declarations`, {
+  method: 'POST',
+  headers: {
+    'Content-Type': 'application/json',
+    Authorization: `Bearer ${localStorage.getItem('token')}`,
+  },
+  body: JSON.stringify(payload),
+});
 
       if (!res.ok) {
         const text = await res.text();
@@ -256,10 +254,15 @@ const SubmitDeclarationPage = () => {
                   >
                     <option value="">-- Chọn Số vào sổ cấp GCN --</option>
                     {landPlots.map(p => (
-                      <option key={p.id} value={p.id}>
-                        {p.certificateNumber || p.parcelCode || p.plotNumber} - {p.address || 'Không có địa chỉ'}
-                      </option>
-                    ))}
+  <option
+    key={p.landParcelId}
+    value={p.landParcelId}
+  >
+    {p.certificateNumber || p.parcelCode || p.plotNumber}
+    {' - '}
+    {p.address || 'Không có địa chỉ'}
+  </option>
+))}
                   </select>
                 )}
               </div>

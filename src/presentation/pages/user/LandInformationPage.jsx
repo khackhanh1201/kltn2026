@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
-import LandTaxLayout from '../components/LandTaxLayout';
+import LandTaxLayout from '../../components/LandTaxLayout';
 
-const API_BASE = 'http://localhost:9090/api';
+const API_BASE = 'http://localhost:8080/api';
 
 const getAuthHeaders = () => ({
   'Content-Type': 'application/json',
@@ -70,24 +70,50 @@ const LandInformationPage = () => {
   }, [cccdNumber]);
 
   const fetchParcels = async () => {
-    setLoading(true);
-    setError('');
-    try {
-      const res = await fetch(
-        `${API_BASE}/land-parcels?ownerCccd=${encodeURIComponent(cccdNumber)}`,
-        { headers: getAuthHeaders() }
-      );
-      if (!res.ok) throw new Error('Không thể tải dữ liệu');
-      const json = await res.json();
-      const data = Array.isArray(json) ? json : (json.data || []);
-      setParcels(data);
-      setFiltered(data);
-    } catch (err) {
-      setError(err.message || 'Lỗi kết nối server');
-    } finally {
-      setLoading(false);
+  setLoading(true);
+  setError('');
+
+  try {
+    const res = await fetch(
+      `${API_BASE}/land-parcels/my-assets`,
+      {
+        headers: getAuthHeaders(),
+      }
+    );
+
+    if (!res.ok) {
+      throw new Error(`HTTP ${res.status}`);
     }
-  };
+
+    const json = await res.json();
+
+    const raw = Array.isArray(json)
+      ? json
+      : (json.data || []);
+
+    // normalize backend -> frontend
+    const data = raw.map(item => ({
+      ...item,
+
+      // alias cho frontend cũ
+      parcelId: item.landParcelId,
+      parcelCode: item.parcelNumber,
+      landType: item.landTypeId,
+      landTypeName: item.landTypeName,
+      
+      area: item.areaSize,
+    }));
+
+    setParcels(data);
+    setFiltered(data);
+
+  } catch (err) {
+    console.error(err);
+    setError(err.message || 'Lỗi kết nối server');
+  } finally {
+    setLoading(false);
+  }
+};
 
   // Apply all filters
   useEffect(() => {
@@ -204,11 +230,11 @@ const LandInformationPage = () => {
               <tr><td colSpan="6" style={{ textAlign: 'center', padding: '60px', color: '#94a3b8' }}>Không tìm thấy thửa đất nào</td></tr>
             ) : (
               filtered.map((p) => (
-                <tr key={p.parcelId} style={{ borderBottom: '1px solid #f1f5f9' }}>
+                <tr key={p.parcelId || p.landParcelId} style={{ borderBottom: '1px solid #f1f5f9' }}>
                   <td style={{ padding: '18px 20px', fontWeight: 600 }}>{p.certificateNumber || '—'}</td>
                   <td style={{ padding: '18px 20px', fontWeight: 600 }}>{p.parcelCode || '—'}</td>
                   <td style={{ padding: '18px 20px' }}>{p.mapSheetNumber || '—'}</td>
-                  <td style={{ padding: '18px 20px' }}>{getLandTypeLabel(p.landType)}</td>
+                  <td style={{ padding: '18px 20px' }}>{p.landTypeName || getLandTypeLabel(p.landType)}</td>
                   <td style={{ padding: '18px 20px', color: '#475569' }}>{p.address || '—'}</td>
                   <td style={{ padding: '18px 20px', textAlign: 'center' }}>
                     <button

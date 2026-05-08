@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import LandTaxLayout from '../components/LandTaxLayout';
+import LandTaxLayout from '../../components/LandTaxLayout';
 
 const AccountPage = () => {
   const navigate = useNavigate();
@@ -14,50 +14,48 @@ const AccountPage = () => {
   }, []);
 
   const fetchUserInfo = async () => {
-    try {
-      setLoading(true);
-      const token = localStorage.getItem('token');
+  try {
+    setLoading(true);
 
-      // Gọi API lấy thông tin người dùng (thường là /api/auth/me hoặc /api/users/me)
-      const res = await fetch('http://localhost:9090/api/auth/me', {
-        headers: {
-          Authorization: `Bearer ${token}`,
-        },
-      });
+    // THÊM DÒNG NÀY
+    const token = localStorage.getItem('token');
 
-      if (!res.ok) {
-        throw new Error('Không thể lấy thông tin tài khoản');
-      }
+    const res = await fetch('http://localhost:8080/api/profile/sync', {
+      method: 'POST',
+      headers: {
+        Authorization: `Bearer ${token}`,
+        'Content-Type': 'application/json',
+      },
+    });
 
-      const json = await res.json();
-      const userData = json.data || json;
-
-      setUserInfo({
-        fullName: userData.fullName || userData.name || 'Nguyễn Quốc Việt',
-        citizenId: userData.cccdNumber || userData.citizenId || '079xxxxxxxxx',
-        phone: userData.phone || '090xxxxxxxx',
-        email: userData.email || 'viet.ng@example.com',
-        address: userData.address || 'Phường Bến Nghé, Quận 1, TP. Hồ Chí Minh',
-        dob: userData.dateOfBirth ? new Date(userData.dateOfBirth).toLocaleDateString('vi-VN') : '15/05/1990',
-        avatarInitial: (userData.fullName || 'V')[0].toUpperCase(),
-      });
-    } catch (err) {
-      console.error(err);
-      // Dùng dữ liệu mẫu nếu API chưa có hoặc lỗi
-      setUserInfo({
-        fullName: 'Nguyễn Quốc Việt',
-        citizenId: '079123456789',
-        phone: '0909123456',
-        email: 'viet.ng@example.com',
-        address: 'Phường Bến Nghé, Quận 1, TP. Hồ Chí Minh',
-        dob: '15/05/1990',
-        avatarInitial: 'V',
-      });
-      setError('Không thể kết nối API. Đang hiển thị dữ liệu mẫu.');
-    } finally {
-      setLoading(false);
+    if (!res.ok) {
+      throw new Error('Không thể lấy thông tin tài khoản');
     }
-  };
+
+    const json = await res.json();
+
+    const userData = json.profile || json.data || json;
+
+    setUserInfo({
+      fullName: userData.fullName || userData.name || 'Nguyễn Quốc Việt',
+      citizenId: userData.cccdNumber || userData.citizenId || '079xxxxxxxxx',
+      phone: userData.phone || userData.phoneNumber || '090xxxxxxxx',
+      email: userData.email || 'viet.ng@example.com',
+      address: userData.address || 'TP.HCM',
+      dob: userData.dateOfBirth
+        ? new Date(userData.dateOfBirth).toLocaleDateString('vi-VN')
+        : userData.dob
+        ? new Date(userData.dob).toLocaleDateString('vi-VN')
+        : '15/05/1990',
+      avatarInitial: (userData.fullName || 'V')[0].toUpperCase(),
+    });
+
+  } catch (err) {
+    console.error(err);
+  } finally {
+    setLoading(false);
+  }
+};
 
   const handleLogout = () => {
     localStorage.clear();

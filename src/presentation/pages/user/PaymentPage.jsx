@@ -1,8 +1,8 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import LandTaxLayout from '../components/LandTaxLayout';
+import LandTaxLayout from '../../components/LandTaxLayout';
 
-const API_BASE = 'http://localhost:9090/api';
+const API_BASE = 'http://localhost:8080/api';
 
 const PaymentPage = () => {
   const navigate = useNavigate();
@@ -20,7 +20,7 @@ const PaymentPage = () => {
   const fetchPendingPayments = async () => {
     try {
       setLoading(true);
-      const res = await fetch(`${API_BASE}/tax/records`, {
+      const res = await fetch(`${API_BASE}/tax/bills/unpaid`, {
         headers: {
           Authorization: `Bearer ${localStorage.getItem('token')}`,
         },
@@ -30,23 +30,28 @@ const PaymentPage = () => {
 
       const json = await res.json();
       const allRecords = json.data || json || [];
+      console.log(allRecords);
 
       // Lọc chỉ các khoản chưa thanh toán
-      const pendingList = allRecords
-        .filter(r => r.status === 'PENDING' || r.status === 'OVERDUE')
-        .map(r => ({
-          paymentId: null,           // sẽ được tạo sau khi gọi /payments/create
-          referenceId: r.taxId,
-          referenceType: 'TAX',
-          code: r.parcelCode || `TAX-${r.taxId}`,
-          type: 'Thuế sử dụng đất',
-          parcel: r.parcelCode || 'Thửa đất',
-          area: '— m²',
-          taxRate: '—',
-          amount: Number(r.taxAmount || 0),
-          dueDate: r.dueDate ? new Date(r.dueDate).toLocaleDateString('vi-VN') : '—',
-          status: r.status
-        }));
+      const pendingList = allRecords.map(r => ({
+  paymentId: r.billId,
+
+  code: `BILL-${r.billId}`,
+
+  type: 'Thuế sử dụng đất',
+
+  parcel: r.description || 'Thửa đất',
+
+  area: '—',
+
+  taxRate: '—',
+
+  amount: Number(r.amount || 0),
+
+  dueDate: '—',
+
+  status: r.status
+}));
 
       setPayments(pendingList);
     } catch (err) {
@@ -59,41 +64,43 @@ const PaymentPage = () => {
 
   // === Gọi API tạo link thanh toán thật ===
   const handlePayment = async (item) => {
-    try {
-      const requestBody = {
-        referenceId: item.referenceId,
-        referenceType: item.referenceType,
-        // amount: item.amount,        // backend sẽ tự lấy từ TaxRecord
-      };
+  try {
 
-      const res = await fetch(`${API_BASE}/payments/create`, {
+    console.log(item);
+
+    const token = localStorage.getItem('token');
+
+    const res = await fetch(
+      `${API_BASE}/payments/${item.paymentId}/create-link`,
+      {
         method: 'POST',
         headers: {
-          'Content-Type': 'application/json',
-          Authorization: `Bearer ${localStorage.getItem('token')}`,
+          Authorization: `Bearer ${token}`,
         },
-        body: JSON.stringify(requestBody),
-      });
-
-      const result = await res.json();
-
-      if (!res.ok) {
-        throw new Error(result.message || 'Không thể tạo link thanh toán');
       }
+    );
 
-      // Backend trả về checkoutUrl từ PayOS
-      const checkoutUrl = result.data?.checkoutUrl || result.checkoutUrl;
+    const result = await res.json();
 
-      if (checkoutUrl) {
-        window.open(checkoutUrl, '_blank');   // Mở trang thanh toán PayOS
-      } else {
-        alert('Không nhận được link thanh toán từ PayOS. Vui lòng thử lại!');
-      }
-    } catch (err) {
-      alert('Lỗi thanh toán: ' + err.message);
-      console.error(err);
+    if (!res.ok) {
+      throw new Error(result.message || 'Không thể tạo link');
     }
-  };
+
+    console.log(result);
+
+    const checkoutUrl = result.checkoutUrl;
+
+    if (checkoutUrl) {
+      window.open(checkoutUrl, '_blank');
+    } else {
+      alert('Không có checkoutUrl');
+    }
+
+  } catch (err) {
+    console.error(err);
+    alert(err.message);
+  }
+};
 
   const formatCurrency = (amount) => {
     return amount.toLocaleString('vi-VN') + 'đ';

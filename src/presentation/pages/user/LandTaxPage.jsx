@@ -1,8 +1,8 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import LandTaxLayout from '../components/LandTaxLayout';
+import LandTaxLayout from '../../components/LandTaxLayout';
 
-const API_BASE = 'http://localhost:9090/api';
+const API_BASE = 'http://localhost:8080/api';
 
 const getAuthHeaders = () => ({
   'Content-Type': 'application/json',
@@ -106,8 +106,8 @@ const LandTaxPage = () => {
     setError('');
     try {
       const [recRes, declRes] = await Promise.all([
-        fetch(`${API_BASE}/tax/records`, { headers: getAuthHeaders() }),
-        fetch(`${API_BASE}/tax/declarations`, { headers: getAuthHeaders() }),
+        fetch(`${API_BASE}/tax/bills/unpaid`, { headers: getAuthHeaders() }),
+        fetch(`${API_BASE}/tax/declarations/my-history`, { headers: getAuthHeaders() }),
       ]);
 
       if (recRes.ok) {

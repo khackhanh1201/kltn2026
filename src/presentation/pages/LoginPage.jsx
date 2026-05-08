@@ -402,7 +402,7 @@ const LoginPage = ({ onLoginSuccess }) => {
                 {(qrPhase === 'polling' || qrPhase === 'expired') && qrBase64 && (
                   <>
                     <img
-                      src={`data:image/png;base64,${qrBase64}`}
+                      src={qrBase64}
                       alt="QR Code Đăng nhập VNeID"
                       className="img-fluid border p-3 rounded mb-3"
                       style={{

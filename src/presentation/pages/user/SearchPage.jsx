@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import LandTaxLayout from '../components/LandTaxLayout';
+import LandTaxLayout from '../../components/LandTaxLayout';
 
 const SearchPage = () => {
   const navigate = useNavigate();
@@ -35,11 +35,14 @@ const SearchPage = () => {
 
     try {
       // Gọi API tra cứu (nếu backend chưa có thì sẽ vào catch)
-      const res = await fetch(`http://localhost:9090/api/search?q=${encodeURIComponent(keyword)}`, {
-        headers: {
-          Authorization: `Bearer ${localStorage.getItem('token')}`,
-        },
-      });
+      const res = await fetch(
+  `http://localhost:8080/api/land-parcels/search?mapSheet=${encodeURIComponent(keyword)}`,
+  {
+    headers: {
+      Authorization: `Bearer ${localStorage.getItem('token')}`,
+    },
+  }
+);
 
       if (!res.ok) {
         throw new Error('Không thể thực hiện tra cứu. Backend chưa hỗ trợ endpoint này.');
@@ -142,8 +145,13 @@ const SearchPage = () => {
                       className="list-group-item list-group-item-action d-flex justify-content-between align-items-center py-3"
                     >
                       <div>
-                        <div className="fw-bold">{item.title || item.id}</div>
-                        <small className="text-muted">{item.description}</small>
+                        <div className="fw-bold">
+  Thửa {item.parcelNumber}
+</div>
+
+<small className="text-muted">
+  {item.address} • {item.areaSize} m²
+</small>
                       </div>
                       <button 
                         className="btn btn-sm btn-outline-danger"
