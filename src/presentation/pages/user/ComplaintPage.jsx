@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import LandTaxLayout from '../components/LandTaxLayout';
+import LandTaxLayout from '../../components/LandTaxLayout';
 
 const ComplaintPage = () => {
   const user = JSON.parse(localStorage.getItem('user_info') || '{}');
