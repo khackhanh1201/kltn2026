@@ -1,13 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import LandTaxLayout from '../../components/LandTaxLayout';
-
-const API_BASE = 'http://localhost:8080/api';
-
-const getAuthHeaders = () => ({
-  'Content-Type': 'application/json',
-  Authorization: `Bearer ${localStorage.getItem('token')}`,
-});
+import { userApi } from '../../../infrastructure/api/userApi';
 
 // ── Màu trạng thái ──
 const STATUS_CONFIG = {
@@ -105,19 +99,30 @@ const LandTaxPage = () => {
     setLoading(true);
     setError('');
     try {
-      const [recRes, declRes] = await Promise.all([
-        fetch(`${API_BASE}/tax/bills/unpaid`, { headers: getAuthHeaders() }),
-        fetch(`${API_BASE}/tax/declarations/my-history`, { headers: getAuthHeaders() }),
+      const [unpaid, paid, decls] = await Promise.all([
+        userApi.getUnpaidBills(),
+        userApi.getPaidBills(),
+        userApi.getMyDeclarations(),
       ]);
 
-      if (recRes.ok) {
-        const j = await recRes.json();
-        setTaxRecords(j.data || []);
-      }
-      if (declRes.ok) {
-        const j = await declRes.json();
-        setDeclarations(j.data || []);
-      }
+      // Merge bills with declaration info for display fields
+      const allBills = [...unpaid, ...paid];
+      const merged = allBills.map(bill => {
+        const decl = decls.find(d => d.recordId === bill.declarationId);
+        const rawStatus = bill.status || '';
+        return {
+          taxId:     bill.billId,
+          taxAmount: bill.amount,
+          status:    rawStatus === 'UNPAID' ? 'PENDING' : rawStatus,
+          parcelId:  decl?.parcelId,
+          taxYear:   decl?.taxYear,
+          createdAt: decl?.submittedAt,
+          dueDate:   null,
+        };
+      });
+
+      setTaxRecords(merged);
+      setDeclarations(decls);
     } catch (err) {
       setError('Không thể tải dữ liệu. Vui lòng thử lại.');
     } finally {
@@ -392,9 +397,9 @@ const LandTaxPage = () => {
                     </thead>
                     <tbody>
                       {declarations.map((d, i) => (
-                        <tr key={d.declarationId} style={{ borderBottom: '1px solid #f8fafc', background: i % 2 === 0 ? '#fff' : '#fafafa' }}>
-                          <td style={{ padding: '10px 14px', fontWeight: 600, color: '#1e293b' }}>HS-{String(d.declarationId).padStart(3, '0')}</td>
-                          <td style={{ padding: '10px 14px', color: '#64748b' }}>{formatDate(d.createdAt)}</td>
+                        <tr key={d.recordId} style={{ borderBottom: '1px solid #f8fafc', background: i % 2 === 0 ? '#fff' : '#fafafa' }}>
+                          <td style={{ padding: '10px 14px', fontWeight: 600, color: '#1e293b' }}>HS-{String(d.recordId).padStart(3, '0')}</td>
+                          <td style={{ padding: '10px 14px', color: '#64748b' }}>{formatDate(d.submittedAt)}</td>
                           <td style={{ padding: '10px 14px', color: '#64748b' }}>{d.parcelCode || 'Thửa #' + d.parcelId}</td>
                           <td style={{ padding: '10px 14px', color: '#475569' }}>{d.taxYear}</td>
                           <td style={{ padding: '10px 14px', color: '#475569' }}>{d.declaredArea?.toLocaleString('vi-VN')}</td>

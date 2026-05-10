@@ -1,8 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import LandTaxLayout from '../../components/LandTaxLayout';
-
-const API_BASE = 'http://localhost:8080/api';
+import { userApi } from '../../../infrastructure/api/userApi';
 
 const PaymentPage = () => {
   const navigate = useNavigate();
@@ -20,16 +19,7 @@ const PaymentPage = () => {
   const fetchPendingPayments = async () => {
     try {
       setLoading(true);
-      const res = await fetch(`${API_BASE}/tax/bills/unpaid`, {
-        headers: {
-          Authorization: `Bearer ${localStorage.getItem('token')}`,
-        },
-      });
-
-      if (!res.ok) throw new Error('Không thể tải danh sách thanh toán');
-
-      const json = await res.json();
-      const allRecords = json.data || json || [];
+      const allRecords = await userApi.getUnpaidBills();
       console.log(allRecords);
 
       // Lọc chỉ các khoản chưa thanh toán
@@ -62,40 +52,14 @@ const PaymentPage = () => {
     }
   };
 
-  // === Gọi API tạo link thanh toán thật ===
   const handlePayment = async (item) => {
   try {
-
-    console.log(item);
-
-    const token = localStorage.getItem('token');
-
-    const res = await fetch(
-      `${API_BASE}/payments/${item.paymentId}/create-link`,
-      {
-        method: 'POST',
-        headers: {
-          Authorization: `Bearer ${token}`,
-        },
-      }
-    );
-
-    const result = await res.json();
-
-    if (!res.ok) {
-      throw new Error(result.message || 'Không thể tạo link');
-    }
-
-    console.log(result);
-
-    const checkoutUrl = result.checkoutUrl;
-
-    if (checkoutUrl) {
-      window.open(checkoutUrl, '_blank');
+    const result = await userApi.createPaymentLink(item.paymentId);
+    if (result.checkoutUrl) {
+      window.open(result.checkoutUrl, '_blank');
     } else {
-      alert('Không có checkoutUrl');
+      alert('Không có checkoutUrl trong phản hồi');
     }
-
   } catch (err) {
     console.error(err);
     alert(err.message);

@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import LandTaxLayout from '../../components/LandTaxLayout';
+import TaxOfficerLayout from '../../components/TaxOfficerLayout';
 // Giả sử bạn dùng react-router-dom để điều hướng
 // import { useNavigate } from 'react-router-dom'; 
 
@@ -44,7 +44,7 @@ const TaxProcessing = () => {
   };
 
   return (
-    <LandTaxLayout user={user}>
+    <TaxOfficerLayout user={user}>
       <div style={{ padding: '20px 30px', position: 'relative' }}>
         
         {/* Header Section */}
@@ -174,7 +174,7 @@ const TaxProcessing = () => {
           </table>
         </div>
       </div>
-    </LandTaxLayout>
+    </TaxOfficerLayout>
   );
 };
 

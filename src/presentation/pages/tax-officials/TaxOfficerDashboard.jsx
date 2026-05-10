@@ -1,11 +1,11 @@
 import React from 'react';
-import LandTaxLayout from '../components/LandTaxLayout';
+import TaxOfficerLayout from '../../components/TaxOfficerLayout';
 
 const TaxOfficerDashboard = () => {
   const user = JSON.parse(localStorage.getItem('user_info') || '{}');
 
   return (
-    <LandTaxLayout user={user}>
+    <TaxOfficerLayout user={user}>
       <div style={{ padding: '20px 30px' }}>
         {/* Header */}
         <div style={{ marginBottom: 30 }}>
@@ -164,7 +164,7 @@ const TaxOfficerDashboard = () => {
           </div>
         </div>
       </div>
-    </LandTaxLayout>
+    </TaxOfficerLayout>
   );
 };
 

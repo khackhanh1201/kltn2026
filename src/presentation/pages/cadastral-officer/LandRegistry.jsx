@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import LandTaxLayout from '../../components/LandTaxLayout';
+import CadastralLayout from '../../components/CadastralLayout';
 
 // Mock Data
 const MOCK_LAND_RECORDS = [
@@ -36,7 +36,7 @@ const LandRegistry = () => {
   // --- VIEW: DANH SÁCH ---
   if (view === 'list') {
     return (
-      <LandTaxLayout user={user}>
+      <CadastralLayout user={user}>
         <div style={containerStyle}>
           
           {/* Header */}
@@ -248,7 +248,7 @@ const LandRegistry = () => {
           </div>
         )}
 
-      </LandTaxLayout>
+      </CadastralLayout>
     );
   }
 

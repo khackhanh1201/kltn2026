@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import LandTaxLayout from '../../components/LandTaxLayout';
+import { userApi } from '../../../infrastructure/api/userApi';
 
 const AccountPage = () => {
   const navigate = useNavigate();
@@ -17,23 +18,7 @@ const AccountPage = () => {
   try {
     setLoading(true);
 
-    // THÊM DÒNG NÀY
-    const token = localStorage.getItem('token');
-
-    const res = await fetch('http://localhost:8080/api/profile/sync', {
-      method: 'POST',
-      headers: {
-        Authorization: `Bearer ${token}`,
-        'Content-Type': 'application/json',
-      },
-    });
-
-    if (!res.ok) {
-      throw new Error('Không thể lấy thông tin tài khoản');
-    }
-
-    const json = await res.json();
-
+    const json = await userApi.syncProfile();
     const userData = json.profile || json.data || json;
 
     setUserInfo({

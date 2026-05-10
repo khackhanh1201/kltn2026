@@ -1,10 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-// import DashboardLayout from '../../components/DashboardLayout';
 import LandTaxLayout from '../../components/LandTaxLayout';
-
-const API_BASE = 'http://localhost:8080/api';
-const getAuth  = () => ({ 'Content-Type': 'application/json', Authorization: `Bearer ${localStorage.getItem('token')}` });
+import { userApi } from '../../../infrastructure/api/userApi';
 
 const formatDate = (v) => v ? new Date(v).toLocaleString('vi-VN', { hour: '2-digit', minute: '2-digit', day: '2-digit', month: '2-digit', year: 'numeric' }) : '—';
 
@@ -41,11 +38,8 @@ const PropertyDeclarationPage = () => {
   const fetchDeclarations = async () => {
     setLoading(true);
     try {
-      const res  = await fetch(`${API_BASE}/tax/declarations/my-history`, {
-  headers: getAuth()
-});
-      const json = await res.json();
-      setDeclarations(Array.isArray(json) ? json : (json.data || []));
+      const list = await userApi.getMyDeclarations();
+      setDeclarations(list);
     } catch {}
     finally { setLoading(false); }
   };

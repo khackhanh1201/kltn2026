@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import LandTaxLayout from '../../components/LandTaxLayout';
+import { userApi } from '../../../infrastructure/api/userApi';
 
 const SearchPage = () => {
   const navigate = useNavigate();
@@ -34,22 +35,7 @@ const SearchPage = () => {
     setHasSearched(true);
 
     try {
-      // Gọi API tra cứu (nếu backend chưa có thì sẽ vào catch)
-      const res = await fetch(
-  `http://localhost:8080/api/land-parcels/search?mapSheet=${encodeURIComponent(keyword)}`,
-  {
-    headers: {
-      Authorization: `Bearer ${localStorage.getItem('token')}`,
-    },
-  }
-);
-
-      if (!res.ok) {
-        throw new Error('Không thể thực hiện tra cứu. Backend chưa hỗ trợ endpoint này.');
-      }
-
-      const json = await res.json();
-      const data = json.data || json || [];
+      const data = await userApi.searchParcels({ mapSheet: keyword });
       setResults(data);
 
     } catch (err) {

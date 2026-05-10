@@ -1,10 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-// import DashboardLayout from '../components/DashboardLayout';
 import LandTaxLayout from '../../components/LandTaxLayout';
-
-const API_BASE = 'http://localhost:8080/api';
-const getAuth  = () => ({ 'Content-Type': 'application/json', Authorization: `Bearer ${localStorage.getItem('token')}` });
+import { userApi } from '../../../infrastructure/api/userApi';
 
 const formatVND  = (v) => v != null ? Number(v).toLocaleString('vi-VN') + ' VND' : '—';
 const formatDate = (v) => v ? new Date(v).toLocaleDateString('vi-VN') : '—';
@@ -60,21 +57,17 @@ const TaxPage = () => {
   setLoading(true);
 
   try {
-    const [unpaidRes, paidRes, declRes] = await Promise.all([
-      fetch(`${API_BASE}/tax/bills/unpaid`, { headers: getAuth() }),
-      fetch(`${API_BASE}/tax/bills/paid`, { headers: getAuth() }),
-      fetch(`${API_BASE}/tax/declarations/my-history`, { headers: getAuth() }),
+    const [unpaidBills, paidBills, declarations] = await Promise.all([
+      userApi.getUnpaidBills(),
+      userApi.getPaidBills(),
+      userApi.getMyDeclarations(),
     ]);
-
-    const unpaidBills = await unpaidRes.json();
-    const paidBills   = await paidRes.json();
-    const declarations = await declRes.json();
 
     const allBills = [...unpaidBills, ...paidBills];
 
     const merged = allBills.map(bill => {
       const decl = declarations.find(
-        d => d.id === bill.declarationId
+        d => d.recordId === bill.declarationId
       );
 
       return {

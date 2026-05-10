@@ -1,12 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import LandTaxLayout from '../../components/LandTaxLayout';
-
-const API_BASE = 'http://localhost:8080/api';
-
-const getAuthHeaders = () => ({
-  'Content-Type': 'application/json',
-  Authorization: `Bearer ${localStorage.getItem('token')}`,
-});
+import { userApi } from '../../../infrastructure/api/userApi';
 
 const LAND_TYPE_LABELS = {
   ODT: 'Đất ở tại đô thị',
@@ -61,35 +55,15 @@ const LandInformationPage = () => {
   const [selected, setSelected] = useState(null);
 
   useEffect(() => {
-    if (cccdNumber) {
-      fetchParcels();
-    } else {
-      setError('Không xác định được CCCD. Vui lòng đăng xuất và đăng nhập lại.');
-      setLoading(false);
-    }
-  }, [cccdNumber]);
+    fetchParcels();
+  }, []);
 
   const fetchParcels = async () => {
   setLoading(true);
   setError('');
 
   try {
-    const res = await fetch(
-      `${API_BASE}/land-parcels/my-assets`,
-      {
-        headers: getAuthHeaders(),
-      }
-    );
-
-    if (!res.ok) {
-      throw new Error(`HTTP ${res.status}`);
-    }
-
-    const json = await res.json();
-
-    const raw = Array.isArray(json)
-      ? json
-      : (json.data || []);
+    const raw = await userApi.getMyLandParcels();
 
     // normalize backend -> frontend
     const data = raw.map(item => ({

@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import LandTaxLayout from '../../components/LandTaxLayout';
+import TaxOfficerLayout from '../../components/TaxOfficerLayout';
 
 const PaymentManagement = () => {
   const user = JSON.parse(localStorage.getItem('user_info') || '{}');
@@ -20,7 +20,7 @@ const PaymentManagement = () => {
   // Render Danh sách chính
   if (view === 'list') {
     return (
-      <LandTaxLayout user={user}>
+      <TaxOfficerLayout user={user}>
         <div style={containerStyle}>
           <div style={headerStyle}>
             <div>
@@ -90,14 +90,14 @@ const PaymentManagement = () => {
           </div>
         </div>
         {showDetail && <PaymentDetailModal payment={selectedPayment} onClose={() => setShowDetail(false)} />}
-      </LandTaxLayout>
+      </TaxOfficerLayout>
     );
   }
 
   // Render Giao diện Upload Đối soát
   if (view === 'recon_upload') {
     return (
-      <LandTaxLayout user={user}>
+      <TaxOfficerLayout user={user}>
         <div style={containerStyle}>
           <div style={{ display: 'flex', alignItems: 'center', gap: 15, marginBottom: 25 }}>
             <button onClick={() => setView('list')} style={btnBack}><i className="bi bi-arrow-left"></i></button>
@@ -136,14 +136,14 @@ const PaymentManagement = () => {
             </div>
           </div>
         </div>
-      </LandTaxLayout>
+      </TaxOfficerLayout>
     );
   }
 
   // Render Kết quả đối soát
   if (view === 'recon_result') {
     return (
-      <LandTaxLayout user={user}>
+      <TaxOfficerLayout user={user}>
         <div style={containerStyle}>
           <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 25 }}>
              <div style={{ display: 'flex', alignItems: 'center', gap: 15 }}>
@@ -218,7 +218,7 @@ const PaymentManagement = () => {
             </div>
           </div>
         </div>
-      </LandTaxLayout>
+      </TaxOfficerLayout>
     );
   }
 };

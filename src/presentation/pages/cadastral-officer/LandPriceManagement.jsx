@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import LandTaxLayout from '../../components/LandTaxLayout';
+import CadastralLayout from '../../components/CadastralLayout';
 
 // Mock Data
 const MOCK_PRICES = [
@@ -31,7 +31,7 @@ const LandPriceManagement = () => {
   // ================= VIEW: DANH SÁCH =================
   if (view === 'list') {
     return (
-      <LandTaxLayout user={user}>
+      <CadastralLayout user={user}>
         <div style={containerStyle}>
           {/* Header */}
           <div style={headerStyle}>
@@ -176,14 +176,14 @@ const LandPriceManagement = () => {
           )}
 
         </div>
-      </LandTaxLayout>
+      </CadastralLayout>
     );
   }
 
   // ================= VIEW: CHI TIẾT =================
   if (view === 'detail' && selectedRecord) {
     return (
-      <LandTaxLayout user={user}>
+      <CadastralLayout user={user}>
         <div style={containerStyle}>
           <div style={{ display: 'flex', alignItems: 'center', gap: 15, marginBottom: 30 }}>
             <button onClick={() => setView('list')} style={btnBackStyle}><i className="bi bi-arrow-left"></i></button>
@@ -264,14 +264,14 @@ const LandPriceManagement = () => {
             </div>
           </div>
         </div>
-      </LandTaxLayout>
+      </CadastralLayout>
     );
   }
 
   // ================= VIEW: NHẬP GIÁ ĐẤT QUY ĐỊNH (FORM) =================
   if (view === 'create') {
     return (
-      <LandTaxLayout user={user}>
+      <CadastralLayout user={user}>
         <div style={containerStyle}>
           <div style={{ display: 'flex', alignItems: 'center', gap: 15, marginBottom: 30 }}>
             <button onClick={() => setView('list')} style={btnBackStyle}><i className="bi bi-arrow-left"></i></button>
@@ -350,7 +350,7 @@ const LandPriceManagement = () => {
             </div>
           </div>
         </div>
-      </LandTaxLayout>
+      </CadastralLayout>
     );
   }
 };

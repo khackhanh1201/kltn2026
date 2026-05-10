@@ -104,11 +104,7 @@ const LoginPage = ({ onLoginSuccess }) => {
 
           if (onLoginSuccess) onLoginSuccess(res.data);
 
-          // Chuyển về trang chủ sau 1.5 giây
-          setTimeout(() => {
-            console.log('[QR] navigate /home');
-            navigate('/home');
-          }, 1500);
+
 
         } else if (status === 'EXPIRED') {
           // QR hết hạn (2 phút) → tự tạo lại
@@ -178,7 +174,6 @@ const LoginPage = ({ onLoginSuccess }) => {
       localStorage.setItem('user_info', JSON.stringify(res.data || res));
 
       if (onLoginSuccess) onLoginSuccess(res.data || res);
-      navigate('/home');
     } catch (err) {
       console.error('[login] error:', err);
       setLoginError(err.message || 'Số định danh hoặc mật khẩu không đúng');

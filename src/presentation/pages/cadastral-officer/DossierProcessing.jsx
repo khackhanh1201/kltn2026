@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import LandTaxLayout from '../../components/LandTaxLayout';
+import CadastralLayout from '../../components/CadastralLayout';
 
 // --- MOCK DATA ---
 const MOCK_DOSSIERS = [
@@ -30,7 +30,7 @@ const DossierProcessing = () => {
   // ================= VIEW: DANH SÁCH =================
   if (view === 'list') {
     return (
-      <LandTaxLayout user={user}>
+      <CadastralLayout user={user}>
         <div style={containerStyle}>
           
           {/* Header */}
@@ -136,14 +136,14 @@ const DossierProcessing = () => {
             </table>
           </div>
         </div>
-      </LandTaxLayout>
+      </CadastralLayout>
     );
   }
 
   // ================= VIEW: CHI TIẾT =================
   if (view === 'detail' && selectedDossier) {
     return (
-      <LandTaxLayout user={user}>
+      <CadastralLayout user={user}>
         <div style={containerStyle}>
           {/* Header */}
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 24 }}>
@@ -332,7 +332,7 @@ const DossierProcessing = () => {
           </div>
         )}
 
-      </LandTaxLayout>
+      </CadastralLayout>
     );
   }
 };

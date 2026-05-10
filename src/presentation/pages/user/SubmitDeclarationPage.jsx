@@ -1,8 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import LandTaxLayout from '../../components/LandTaxLayout';
-
-const API_BASE = 'http://localhost:8080/api';
+import { userApi } from '../../../infrastructure/api/userApi';
 
 const STEPS = [
   { id: 1, label: 'XÁC THỰC' },
@@ -56,20 +55,14 @@ const SubmitDeclarationPage = () => {
 
   // Load danh sách thửa đất khi vào bước 2
   useEffect(() => {
-    if (step === 2 && userId && landPlots.length === 0) {
+    if (step === 2 && landPlots.length === 0) {
       setLoadingPlots(true);
-      fetch(`${API_BASE}/land-parcels/my-assets`, {
-        headers: { Authorization: `Bearer ${localStorage.getItem('token')}` },
-      })
-        .then(res => res.ok ? res.json() : [])
-        .then(data => {
-          const list = Array.isArray(data) ? data : (data?.data || []);
-          setLandPlots(list);
-        })
+      userApi.getMyLandParcels()
+        .then(list => setLandPlots(list))
         .catch(err => console.error(err))
         .finally(() => setLoadingPlots(false));
     }
-  }, [step, userId]);
+  }, [step]);
 
   const handleFileSelect = (e) => {
     if (e.target.files) setFiles(prev => [...prev, ...Array.from(e.target.files)]);
@@ -93,28 +86,11 @@ const SubmitDeclarationPage = () => {
     setError('');
 
     try {
-      const payload = {
-  landParcelId: Number(form.landPlotId),
-  declarationType: form.declarationType,
-  content: form.content,
-};
-
-      const res = await fetch(`${API_BASE}/tax/declarations`, {
-  method: 'POST',
-  headers: {
-    'Content-Type': 'application/json',
-    Authorization: `Bearer ${localStorage.getItem('token')}`,
-  },
-  body: JSON.stringify(payload),
-});
-
-      if (!res.ok) {
-        const text = await res.text();
-        throw new Error(text || `Lỗi ${res.status}`);
-      }
-
-      const result = await res.json();
-      setDeclarationCode(`HS-${new Date().getFullYear()}-${result.declarationId || Date.now()}`);
+      const result = await userApi.submitDeclaration({
+        parcelId: form.landPlotId,
+        attachmentIds: [],
+      });
+      setDeclarationCode(`HS-${new Date().getFullYear()}-${result.recordId || Date.now()}`);
       setSuccess(true);
     } catch (err) {
       setError(err.message || 'Nộp hồ sơ thất bại');
