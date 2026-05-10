@@ -162,6 +162,7 @@ const LoginPage = ({ onLoginSuccess }) => {
   };
 
   // ── ĐĂNG NHẬP THƯỜNG ──
+  // ── ĐĂNG NHẬP THƯỜNG ──
   const handleLogin = async (e) => {
     e.preventDefault();
     setLoginLoading(true);
@@ -170,15 +171,47 @@ const LoginPage = ({ onLoginSuccess }) => {
       const res = await authRepository.login(citizenId, password);
       console.log('[login] full response:', res);
 
-      // Token nằm ở res.data.token theo tài liệu API
       const token = res.data?.token || res.token;
       if (!token) throw new Error('Không nhận được token');
 
-      localStorage.setItem('token', token);
-      localStorage.setItem('user_info', JSON.stringify(res.data || res));
+      // 1. Cố gắng lấy từ data API (trường hợp biến tên là role hoặc mảng roles)
+      let role = res.data?.role;
+      if (!role && res.data?.roles && res.data.roles.length > 0) {
+        role = res.data.roles[0];
+      }
 
-      if (onLoginSuccess) onLoginSuccess(res.data || res);
-      navigate('/home');
+      // 2. NẾU VẪN KHÔNG TÌM THẤY -> Mổ trực tiếp JWT Token ra để lấy
+      if (!role && token) {
+        try {
+          // Decode payload của JWT Token
+          const base64Url = token.split('.')[1];
+          const base64 = base64Url.replace(/-/g, '+').replace(/_/g, '/');
+          const jsonPayload = decodeURIComponent(window.atob(base64).split('').map(function(c) {
+              return '%' + ('00' + c.charCodeAt(0).toString(16)).slice(-2);
+          }).join(''));
+          
+          const decodedToken = JSON.parse(jsonPayload);
+          console.log("[login] Nội dung ẩn trong Token:", decodedToken);
+          
+          // Lấy role ra từ token (thường backend hay đặt là role, roles, hoặc authorities)
+          role = decodedToken.role 
+              || (decodedToken.roles ? decodedToken.roles[0] : null) 
+              || (decodedToken.authorities ? decodedToken.authorities[0] : null);
+              
+        } catch (error) {
+          console.error("Lỗi giải mã token:", error);
+        }
+      }
+
+      console.log("[login] Role CHỐT LẠI là:", role);
+
+      // Lưu token và role vào localStorage
+      localStorage.setItem('token', token);
+      localStorage.setItem('role', role || 'ROLE_CITIZEN'); // Nếu lỗi quá thì mặc định cho làm User
+
+      // Gọi hàm từ App.js để xử lý chuyển trang theo role
+      if (onLoginSuccess) onLoginSuccess();
+      
     } catch (err) {
       console.error('[login] error:', err);
       setLoginError(err.message || 'Số định danh hoặc mật khẩu không đúng');

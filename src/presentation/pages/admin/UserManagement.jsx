@@ -1,4 +1,5 @@
 import React, { useState } from 'react';
+import AdminLayout from '../../components/AdminLayout';
 
 // Mock Data
 const INITIAL_USERS = [
@@ -10,6 +11,8 @@ const INITIAL_USERS = [
 ];
 
 const UserManagement = () => {
+  const user = JSON.parse(localStorage.getItem('user_info') || '{}');
+
   const [users, setUsers] = useState(INITIAL_USERS);
   const [searchTerm, setSearchTerm] = useState('');
   const [roleFilter, setRoleFilter] = useState('Tất cả vai trò');
@@ -20,17 +23,17 @@ const UserManagement = () => {
   const [lockReason, setLockReason] = useState('');
 
   // Lọc dữ liệu
-  const filteredUsers = users.filter(user => {
-    const matchSearch = user.name.toLowerCase().includes(searchTerm.toLowerCase()) || 
-                        user.email.toLowerCase().includes(searchTerm.toLowerCase()) ||
-                        user.cccd.includes(searchTerm);
-    const matchRole = roleFilter === 'Tất cả vai trò' || user.role === roleFilter;
+  const filteredUsers = users.filter(u => {
+    const matchSearch = u.name.toLowerCase().includes(searchTerm.toLowerCase()) || 
+                        u.email.toLowerCase().includes(searchTerm.toLowerCase()) ||
+                        u.cccd.includes(searchTerm);
+    const matchRole = roleFilter === 'Tất cả vai trò' || u.role === roleFilter;
     return matchSearch && matchRole;
   });
 
   // Mở Modal Khóa tài khoản
-  const handleOpenLockModal = (user) => {
-    setSelectedUser(user);
+  const handleOpenLockModal = (u) => {
+    setSelectedUser(u);
     setLockReason('');
     setIsLockModalOpen(true);
   };
@@ -47,177 +50,175 @@ const UserManagement = () => {
   };
 
   return (
-    <div style={{ backgroundColor: '#f8fafc', minHeight: '100vh', padding: '30px 40px', fontFamily: 'Inter, sans-serif' }}>
-      
-      {/* Header */}
-      <div style={{ marginBottom: 24 }}>
-        <h2 style={{ margin: 0, fontWeight: 800, color: '#1e293b' }}>Quản lý người dùng</h2>
-        <p style={{ color: '#64748b', marginTop: 4, fontSize: 14 }}>Quản lý tài khoản công dân, cán bộ Thuế và cán bộ Địa chính</p>
-      </div>
-
-      {/* Filter Bar */}
-      <div style={filterContainerStyle}>
-        <div style={searchWrapperStyle}>
-          <i className="bi bi-search" style={searchIconStyle}></i>
-          <input 
-            type="text" 
-            placeholder="Tìm kiếm theo Tên, Email, CCCD..." 
-            value={searchTerm}
-            onChange={(e) => setSearchTerm(e.target.value)}
-            style={searchInputStyle}
-          />
+    <AdminLayout user={user}>
+      <div className="container py-4" style={{ maxWidth: '1140px' }}>
+        
+        {/* Header Section */}
+        <div className="mb-4">
+          <h3 className="fw-bold">Quản lý người dùng</h3>
+          <p className="text-muted">Quản lý tài khoản công dân, cán bộ Thuế và cán bộ Địa chính</p>
         </div>
-        <select 
-          value={roleFilter} 
-          onChange={(e) => setRoleFilter(e.target.value)} 
-          style={selectStyle}
-        >
-          <option value="Tất cả vai trò">Tất cả vai trò</option>
-          <option value="Công dân">Công dân</option>
-          <option value="Cán bộ Thuế">Cán bộ Thuế</option>
-          <option value="Cán bộ Địa chính">Cán bộ Địa chính</option>
-        </select>
-      </div>
 
-      {/* Table */}
-      <div style={tableCardStyle}>
-        <table style={{ width: '100%', borderCollapse: 'collapse' }}>
-          <thead>
-            <tr style={thRowStyle}>
-              <th style={thCellStyle}>ID / NGƯỜI DÙNG</th>
-              <th style={thCellStyle}>VAI TRÒ</th>
-              <th style={thCellStyle}>CCCD</th>
-              <th style={thCellStyle}>TRẠNG THÁI</th>
-              <th style={thCellStyle}>ĐĂNG NHẬP CUỐI</th>
-              <th style={{ ...thCellStyle, textAlign: 'center' }}>THAO TÁC</th>
-            </tr>
-          </thead>
-          <tbody>
-            {filteredUsers.map((user) => (
-              <tr key={user.id} style={tdRowStyle}>
-                <td style={tdCellStyle}>
-                  <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
-                    <div style={avatarStyle}>{user.name.charAt(0)}</div>
-                    <div>
-                      <div style={{ fontWeight: 700, color: '#1e293b', fontSize: 14 }}>{user.name}</div>
-                      <div style={{ color: '#64748b', fontSize: 12 }}>{user.email}</div>
-                    </div>
-                  </div>
-                </td>
-                <td style={tdCellStyle}>
-                  <span style={getRoleBadgeStyle(user.role)}>{user.role}</span>
-                </td>
-                <td style={{ ...tdCellStyle, color: '#475569' }}>{user.cccd}</td>
-                <td style={tdCellStyle}>
-                  <div style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 13, fontWeight: 600, color: user.status === 'Hoạt động' ? '#16a34a' : '#dc2626' }}>
-                    <div style={{ width: 8, height: 8, borderRadius: '50%', backgroundColor: user.status === 'Hoạt động' ? '#22c55e' : '#ef4444' }}></div>
-                    {user.status}
-                  </div>
-                </td>
-                <td style={{ ...tdCellStyle, color: '#64748b', fontSize: 13 }}>{user.lastLogin}</td>
-                <td style={{ ...tdCellStyle, textAlign: 'center' }}>
-                  <button 
-                    style={actionBtnStyle} 
-                    onClick={() => handleOpenLockModal(user)}
-                    title={user.status === 'Hoạt động' ? 'Khóa tài khoản' : 'Mở khóa tài khoản'}
-                  >
-                    <i className={user.status === 'Hoạt động' ? "bi bi-lock" : "bi bi-unlock"}></i>
-                  </button>
-                </td>
-              </tr>
-            ))}
-            {filteredUsers.length === 0 && (
-              <tr>
-                <td colSpan="6" style={{ textAlign: 'center', padding: '40px', color: '#94a3b8' }}>
-                  Không tìm thấy người dùng nào phù hợp.
-                </td>
-              </tr>
-            )}
-          </tbody>
-        </table>
-      </div>
-
-      {/* Modal Khóa Tài Khoản */}
-      {isLockModalOpen && selectedUser && (
-        <div style={modalOverlayStyle}>
-          <div style={modalContentStyle}>
-            {/* Modal Header */}
-            <div style={{ display: 'flex', gap: 16, marginBottom: 24 }}>
-              <div style={warningIconBgStyle}>
-                <i className="bi bi-exclamation-triangle" style={{ color: '#dc2626', fontSize: 20 }}></i>
+        {/* Filter Bar */}
+        <div className="card shadow-sm border-0 mb-4" style={{ borderRadius: '12px' }}>
+          <div className="card-body p-3">
+            <div className="row g-3">
+              <div className="col-md-8 position-relative">
+                <i className="bi bi-search position-absolute text-muted" style={{ left: '25px', top: '50%', transform: 'translateY(-50%)' }}></i>
+                <input 
+                  type="text" 
+                  className="form-control py-2 bg-light border-0" 
+                  placeholder="Tìm kiếm theo Tên, Email, CCCD..." 
+                  value={searchTerm}
+                  onChange={(e) => setSearchTerm(e.target.value)}
+                  style={{ paddingLeft: '40px', borderRadius: '8px' }}
+                />
               </div>
-              <div>
-                <h3 style={{ margin: 0, fontSize: 20, fontWeight: 800, color: '#1e293b' }}>Khóa tài khoản</h3>
-                <p style={{ margin: '4px 0 0', color: '#475569', fontSize: 14, lineHeight: 1.5 }}>
-                  Đình chỉ tài khoản <span style={{ fontWeight: 700, color: '#1e293b' }}>{selectedUser.name}</span><br />
-                  ({selectedUser.email}).
-                </p>
+              <div className="col-md-4">
+                <select 
+                  className="form-select py-2 border-danger text-danger fw-semibold" 
+                  value={roleFilter} 
+                  onChange={(e) => setRoleFilter(e.target.value)} 
+                  style={{ borderRadius: '8px', backgroundColor: '#fff' }}
+                >
+                  <option value="Tất cả vai trò">Tất cả vai trò</option>
+                  <option value="Công dân">Công dân</option>
+                  <option value="Cán bộ Thuế">Cán bộ Thuế</option>
+                  <option value="Cán bộ Địa chính">Cán bộ Địa chính</option>
+                </select>
               </div>
-            </div>
-
-            {/* Modal Body */}
-            <div style={{ borderTop: '1px solid #f1f5f9', paddingTop: 20, marginBottom: 24 }}>
-              <label style={{ display: 'block', fontSize: 14, fontWeight: 700, color: '#1e293b', marginBottom: 8 }}>
-                Lý do khóa <span style={{ color: '#dc2626' }}>*</span>
-              </label>
-              <textarea 
-                rows={4}
-                placeholder="Nhập lý do chi tiết để lưu vết hệ thống (VD: Phát hiện đăng nhập bất thường, Xâm phạm dữ liệu...)"
-                value={lockReason}
-                onChange={(e) => setLockReason(e.target.value)}
-                style={textareaStyle}
-              />
-              <div style={{ display: 'flex', alignItems: 'center', gap: 6, color: '#64748b', fontSize: 12, marginTop: 8 }}>
-                <i className="bi bi-shield-check"></i>
-                Hành động này sẽ được ghi lại vào Lịch sử thao tác hệ thống.
-              </div>
-            </div>
-
-            {/* Modal Footer */}
-            <div style={{ borderTop: '1px solid #f1f5f9', paddingTop: 20, display: 'flex', justifyContent: 'flex-end', gap: 12 }}>
-              <button style={btnCancelStyle} onClick={() => setIsLockModalOpen(false)}>Hủy</button>
-              <button style={btnConfirmStyle} onClick={handleConfirmLock}>Xác nhận Khóa</button>
             </div>
           </div>
         </div>
-      )}
 
-    </div>
+        {/* Table */}
+        <div className="card shadow-sm border-0" style={{ borderRadius: '16px', overflow: 'hidden' }}>
+          <div className="table-responsive">
+            <table className="table table-borderless table-hover align-middle mb-0" style={{ minWidth: '950px' }}>
+              <thead className="bg-light border-bottom">
+                <tr>
+                  <th className="py-3 px-4 text-muted small fw-bold" style={{ letterSpacing: '0.5px' }}>ID / NGƯỜI DÙNG</th>
+                  <th className="py-3 px-4 text-muted small fw-bold" style={{ letterSpacing: '0.5px' }}>VAI TRÒ</th>
+                  <th className="py-3 px-4 text-muted small fw-bold" style={{ letterSpacing: '0.5px' }}>CCCD</th>
+                  <th className="py-3 px-4 text-muted small fw-bold" style={{ letterSpacing: '0.5px' }}>TRẠNG THÁI</th>
+                  <th className="py-3 px-4 text-muted small fw-bold" style={{ letterSpacing: '0.5px' }}>ĐĂNG NHẬP CUỐI</th>
+                  <th className="py-3 px-4 text-muted small fw-bold text-center" style={{ letterSpacing: '0.5px' }}>THAO TÁC</th>
+                </tr>
+              </thead>
+              <tbody>
+                {filteredUsers.map((u, idx) => (
+                  <tr key={u.id} className={idx !== filteredUsers.length - 1 ? "border-bottom" : ""}>
+                    <td className="py-3 px-4">
+                      <div className="d-flex align-items-center gap-3">
+                        <div className="rounded-circle bg-secondary bg-opacity-10 text-secondary d-flex align-items-center justify-content-center fw-bold" style={{ width: '40px', height: '40px', flexShrink: 0 }}>
+                          {u.name.charAt(0)}
+                        </div>
+                        <div>
+                          <div className="fw-bold text-dark">{u.name}</div>
+                          <div className="text-muted small mt-1">{u.email}</div>
+                        </div>
+                      </div>
+                    </td>
+                    <td className="py-3 px-4">
+                      <span className={`badge rounded-pill px-3 py-2 ${getRoleBadgeClass(u.role)}`}>
+                        {u.role}
+                      </span>
+                    </td>
+                    <td className="py-3 px-4 text-secondary small font-monospace">
+                      {u.cccd}
+                    </td>
+                    <td className="py-3 px-4">
+                      <div className={`d-flex align-items-center gap-2 small fw-semibold ${u.status === 'Hoạt động' ? 'text-success' : 'text-danger'}`}>
+                        <div className={`rounded-circle ${u.status === 'Hoạt động' ? 'bg-success' : 'bg-danger'}`} style={{ width: '8px', height: '8px' }}></div>
+                        {u.status}
+                      </div>
+                    </td>
+                    <td className="py-3 px-4 text-muted small">
+                      {u.lastLogin}
+                    </td>
+                    <td className="py-3 px-4 text-center">
+                      <button 
+                        className="btn btn-light btn-sm text-secondary" 
+                        onClick={() => handleOpenLockModal(u)}
+                        title={u.status === 'Hoạt động' ? 'Khóa tài khoản' : 'Mở khóa tài khoản'}
+                        style={{ borderRadius: '8px', width: '36px', height: '36px' }}
+                      >
+                        <i className={u.status === 'Hoạt động' ? "bi bi-lock-fill" : "bi bi-unlock-fill"}></i>
+                      </button>
+                    </td>
+                  </tr>
+                ))}
+                {filteredUsers.length === 0 && (
+                  <tr>
+                    <td colSpan="6" className="text-center py-5 text-muted">
+                      Không tìm thấy người dùng nào phù hợp.
+                    </td>
+                  </tr>
+                )}
+              </tbody>
+            </table>
+          </div>
+        </div>
+
+        {/* Modal Khóa Tài Khoản */}
+        {isLockModalOpen && selectedUser && (
+          <div className="modal-overlay d-flex align-items-center justify-content-center" style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, backgroundColor: 'rgba(15, 23, 42, 0.6)', zIndex: 1050 }}>
+            <div className="card border-0 shadow-lg" style={{ width: '100%', maxWidth: '500px', borderRadius: '16px', overflow: 'hidden' }}>
+              <div className="p-4 p-md-5">
+                {/* Modal Header */}
+                <div className="d-flex gap-3 mb-4">
+                  <div className="rounded-circle bg-danger bg-opacity-10 text-danger d-flex align-items-center justify-content-center flex-shrink-0" style={{ width: '48px', height: '48px', fontSize: '24px' }}>
+                    <i className="bi bi-exclamation-triangle"></i>
+                  </div>
+                  <div>
+                    <h4 className="fw-bold text-dark mb-1">Khóa tài khoản</h4>
+                    <p className="text-muted small mb-0" style={{ lineHeight: '1.5' }}>
+                      Đình chỉ tài khoản <span className="fw-bold text-dark">{selectedUser.name}</span><br />
+                      ({selectedUser.email}).
+                    </p>
+                  </div>
+                </div>
+
+                {/* Modal Body */}
+                <div className="border-top pt-4 mb-4">
+                  <label className="form-label fw-bold small text-dark mb-2">
+                    Lý do khóa <span className="text-danger">*</span>
+                  </label>
+                  <textarea 
+                    className="form-control"
+                    rows={4}
+                    placeholder="Nhập lý do chi tiết để lưu vết hệ thống (VD: Phát hiện đăng nhập bất thường, Xâm phạm dữ liệu...)"
+                    value={lockReason}
+                    onChange={(e) => setLockReason(e.target.value)}
+                    style={{ borderRadius: '8px', resize: 'none' }}
+                  />
+                  <div className="d-flex align-items-center gap-2 text-muted small mt-2">
+                    <i className="bi bi-shield-check"></i>
+                    Hành động này sẽ được ghi lại vào Lịch sử thao tác hệ thống.
+                  </div>
+                </div>
+
+                {/* Modal Footer */}
+                <div className="d-flex justify-content-end gap-2 border-top pt-4">
+                  <button className="btn btn-light border fw-semibold px-4" style={{ borderRadius: '8px' }} onClick={() => setIsLockModalOpen(false)}>Hủy</button>
+                  <button className="btn btn-danger fw-semibold px-4" style={{ borderRadius: '8px' }} onClick={handleConfirmLock}>Xác nhận Khóa</button>
+                </div>
+              </div>
+            </div>
+          </div>
+        )}
+
+      </div>
+    </AdminLayout>
   );
 };
 
-// --- Styles ---
-
-const filterContainerStyle = { display: 'flex', gap: 16, marginBottom: 24 };
-const searchWrapperStyle = { position: 'relative', flex: 1 };
-const searchIconStyle = { position: 'absolute', left: 16, top: '50%', transform: 'translateY(-50%)', color: '#94a3b8' };
-const searchInputStyle = { width: '100%', padding: '12px 16px 12px 42px', borderRadius: 8, border: '1px solid #e2e8f0', fontSize: 14, outline: 'none', color: '#1e293b' };
-const selectStyle = { width: 200, padding: '12px 16px', borderRadius: 8, border: '1px solid #b91c1c', color: '#b91c1c', fontSize: 14, fontWeight: 600, outline: 'none', backgroundColor: '#fff', cursor: 'pointer' };
-
-const tableCardStyle = { background: '#fff', borderRadius: 12, border: '1px solid #e2e8f0', overflow: 'hidden' };
-const thRowStyle = { borderBottom: '1px solid #e2e8f0', backgroundColor: '#f8fafc' };
-const thCellStyle = { padding: '16px 24px', textAlign: 'left', fontSize: 11, fontWeight: 700, color: '#64748b', letterSpacing: 0.5 };
-const tdRowStyle = { borderBottom: '1px solid #f1f5f9' };
-const tdCellStyle = { padding: '16px 24px', fontSize: 14 };
-
-const avatarStyle = { width: 40, height: 40, borderRadius: '50%', backgroundColor: '#e2e8f0', color: '#475569', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 16, fontWeight: 700 };
-const actionBtnStyle = { background: 'none', border: 'none', color: '#94a3b8', fontSize: 18, cursor: 'pointer', padding: 4 };
-
-// Role Badges
-const getRoleBadgeStyle = (role) => {
-  const base = { padding: '4px 10px', borderRadius: 50, fontSize: 11, fontWeight: 700, display: 'inline-block' };
-  if (role === 'Công dân') return { ...base, backgroundColor: '#eff6ff', color: '#2563eb' };
-  if (role === 'Cán bộ Thuế') return { ...base, backgroundColor: '#f0fdf4', color: '#16a34a' };
-  if (role === 'Cán bộ Địa chính') return { ...base, backgroundColor: '#faf5ff', color: '#9333ea' };
-  return base;
+// --- Helper Functions ---
+const getRoleBadgeClass = (role) => {
+  if (role === 'Công dân') return 'bg-primary bg-opacity-10 text-primary';
+  if (role === 'Cán bộ Thuế') return 'bg-success bg-opacity-10 text-success';
+  if (role === 'Cán bộ Địa chính') return 'bg-info bg-opacity-10 text-info';
+  return 'bg-secondary bg-opacity-10 text-secondary';
 };
-
-// Modal Styles
-const modalOverlayStyle = { position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, backgroundColor: 'rgba(15, 23, 42, 0.4)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 1000 };
-const modalContentStyle = { backgroundColor: '#fff', width: '100%', maxWidth: 500, borderRadius: 16, padding: '24px 32px', boxShadow: '0 20px 25px -5px rgba(0, 0, 0, 0.1), 0 10px 10px -5px rgba(0, 0, 0, 0.04)' };
-const warningIconBgStyle = { width: 48, height: 48, borderRadius: '50%', backgroundColor: '#fee2e2', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 };
-const textareaStyle = { width: '100%', padding: '12px 16px', borderRadius: 8, border: '1px solid #cbd5e1', fontSize: 14, outline: 'none', color: '#334155', resize: 'none' };
-const btnCancelStyle = { padding: '10px 24px', borderRadius: 8, border: '1px solid #cbd5e1', backgroundColor: '#fff', color: '#334155', fontSize: 14, fontWeight: 700, cursor: 'pointer' };
-const btnConfirmStyle = { padding: '10px 24px', borderRadius: 8, border: 'none', backgroundColor: '#e60000', color: '#fff', fontSize: 14, fontWeight: 700, cursor: 'pointer' };
 
 export default UserManagement;

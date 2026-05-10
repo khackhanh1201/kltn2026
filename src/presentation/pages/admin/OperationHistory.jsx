@@ -1,219 +1,254 @@
-import React, { useState } from 'react';
-
-// --- MOCK DATA ---
-const MOCK_LOGS = [
-  { 
-    id: '1', 
-    time: '2026-04-18 10:35:12', 
-    accountName: 'Admin (Hệ thống)', 
-    accountId: 'usr_sys_01', 
-    ip: '192.168.1.45', 
-    actionType: 'CREATE_DELEGATION', 
-    target: 'Role/DEL-003', 
-    detail: 'Ủy quyền "Duyệt hồ sơ thuế" từ usr_002 sa...', 
-    status: 'TỐT' 
-  },
-  { 
-    id: '2', 
-    time: '2026-04-18 10:30:45', 
-    accountName: 'Nguyễn Văn Công', 
-    accountId: 'usr_001', 
-    ip: '118.69.12.34', 
-    actionType: 'LOGIN_SSO', 
-    target: 'System/Auth', 
-    detail: 'Đăng nhập qua cổng VNeID', 
-    status: 'TỐT' 
-  },
-  { 
-    id: '3', 
-    time: '2026-04-18 10:15:02', 
-    accountName: 'Trần Thị Hằng', 
-    accountId: 'usr_002', 
-    ip: '192.168.1.112', 
-    actionType: 'UPDATE_DOSSIER', 
-    target: 'Dossier/HS-26-0045', 
-    detail: 'Cập nhật trạng thái "Chờ nộp thuế"', 
-    status: 'TỐT' 
-  },
-  { 
-    id: '4', 
-    time: '2026-04-18 09:45:11', 
-    accountName: 'Hệ thống tự động', 
-    accountId: 'system', 
-    ip: 'localhost', 
-    actionType: 'SYNC_LAND_PRICE', 
-    target: 'System/Settings', 
-    detail: 'Lỗi đồng bộ bảng giá đất cơ sở dữ liệu quố...', 
-    status: 'LỖI' 
-  },
-  { 
-    id: '5', 
-    time: '2026-04-18 09:00:22', 
-    accountName: 'Admin (Hệ thống)', 
-    accountId: 'usr_sys_01', 
-    ip: '192.168.1.45', 
-    actionType: 'LOCK_ACCOUNT', 
-    target: 'User/usr_004', 
-    detail: 'Khóa tài khoản do sai mật khẩu quá 5 lần', 
-    status: 'TỐT' 
-  },
-];
+import React, { useState, useEffect } from 'react';
+import AdminLayout from '../../components/AdminLayout';
 
 const OperationHistory = () => {
+  const user = JSON.parse(localStorage.getItem('user_info') || '{}');
+
+  // States quản lý dữ liệu
+  const [logs, setLogs] = useState([]);
+  const [isLoading, setIsLoading] = useState(true);
+  const [error, setError] = useState(null);
+
+  // States quản lý bộ lọc
   const [searchTerm, setSearchTerm] = useState('');
   const [actionFilter, setActionFilter] = useState('Tất cả hành động');
   const [dateFilter, setDateFilter] = useState('');
 
-  return (
-    <div style={{ backgroundColor: '#f8fafc', minHeight: '100vh', padding: '30px 40px', fontFamily: 'Inter, sans-serif' }}>
+  // Lấy dữ liệu khi vào trang
+  useEffect(() => {
+    fetchAuditLogs();
+  }, []);
+
+  const fetchAuditLogs = async () => {
+    setIsLoading(true);
+    setError(null);
+    try {
+      const token = localStorage.getItem('token');
+      const baseUrl = 'http://localhost:8080'; // Thay bằng port backend của bạn
       
-      {/* Header */}
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 24 }}>
-        <div>
-          <h2 style={{ margin: 0, fontWeight: 800, color: '#1e293b' }}>Lịch sử thao tác</h2>
-          <p style={{ color: '#64748b', marginTop: 4, fontSize: 14 }}>Tra cứu và kiểm toán các hành động trên hệ thống</p>
-        </div>
-        <button style={btnExportStyle}>
-          <i className="bi bi-download" style={{ marginRight: 8 }}></i> Xuất dữ liệu (CSV)
-        </button>
-      </div>
+      const res = await fetch(`${baseUrl}/api/admin/audit-logs`, {
+        headers: { 'Authorization': `Bearer ${token}` }
+      });
 
-      {/* Filter Bar */}
-      <div style={filterBarStyle}>
-        <div style={searchWrapperStyle}>
-          <i className="bi bi-search" style={searchIconStyle}></i>
-          <input 
-            type="text" 
-            placeholder="Tra cứu ID Log, Tên tài khoản, ID người dùng..." 
-            value={searchTerm}
-            onChange={(e) => setSearchTerm(e.target.value)}
-            style={searchInputStyle}
-          />
-        </div>
-        
-        <select 
-          value={actionFilter} 
-          onChange={(e) => setActionFilter(e.target.value)} 
-          style={selectStyle}
-        >
-          <option value="Tất cả hành động">Tất cả hành động</option>
-          <option value="LOGIN_SSO">LOGIN_SSO</option>
-          <option value="UPDATE_DOSSIER">UPDATE_DOSSIER</option>
-        </select>
+      if (!res.ok) throw new Error('Không thể tải dữ liệu lịch sử thao tác');
 
-        <input 
-          type="date" 
-          value={dateFilter}
-          onChange={(e) => setDateFilter(e.target.value)}
-          style={dateInputStyle}
-        />
+      const data = await res.json();
+      const rawLogs = data.data || data;
 
-        <button style={btnFilterStyle}>
-          <i className="bi bi-funnel" style={{ marginRight: 6 }}></i> Lọc
-        </button>
-      </div>
+      if (Array.isArray(rawLogs)) {
+        // Map dữ liệu từ DB (Bảng audit_logs) sang format hiển thị
+        const mappedLogs = rawLogs.map(log => {
+          // Xử lý status dựa trên action (vd: REJECT = LỖI/Từ chối, còn lại là TỐT/Thành công)
+          const actionStr = (log.action || '').toUpperCase();
+          const isError = actionStr.includes('REJECT') || actionStr.includes('FAIL') || actionStr.includes('ERROR');
 
-      {/* Data Table */}
-      <div style={tableCardStyle}>
-        <table style={tableStyle}>
-          <thead>
-            <tr style={thRowStyle}>
-              <th style={thCellStyle}>THỜI GIAN</th>
-              <th style={thCellStyle}>TÀI KHOẢN (NGƯỜI XỬ LÝ)</th>
-              <th style={thCellStyle}>LOẠI THAO TÁC</th>
-              <th style={thCellStyle}>ĐỐI TƯỢNG TÁC ĐỘNG</th>
-              <th style={thCellStyle}>CHI TIẾT</th>
-              <th style={{ ...thCellStyle, textAlign: 'right' }}>TRẠNG THÁI</th>
-            </tr>
-          </thead>
-          <tbody>
-            {MOCK_LOGS.map((log) => (
-              <tr key={log.id} style={tdRowStyle}>
-                <td style={{ ...tdCellStyle, color: '#64748b', fontSize: 13, whiteSpace: 'nowrap' }}>
-                  {log.time}
-                </td>
-                <td style={tdCellStyle}>
-                  <div style={{ fontWeight: 700, color: '#1e293b' }}>{log.accountName}</div>
-                  <div style={{ color: '#94a3b8', fontSize: 12, marginTop: 4 }}>
-                    {log.accountId} / {log.ip}
-                  </div>
-                </td>
-                <td style={{ ...tdCellStyle, color: '#2563eb', fontWeight: 600, fontSize: 13 }}>
-                  {log.actionType}
-                </td>
-                <td style={{ ...tdCellStyle, color: '#475569', fontSize: 13 }}>
-                  {log.target}
-                </td>
-                <td style={{ ...tdCellStyle, color: '#475569', fontSize: 13 }}>
-                  {log.detail}
-                </td>
-                <td style={{ ...tdCellStyle, textAlign: 'right' }}>
-                  <span style={getStatusBadgeStyle(log.status)}>{log.status}</span>
-                </td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
-      </div>
+          // Định dạng thời gian
+          const logDate = log.timestamp ? new Date(log.timestamp) : null;
+          const formattedTime = logDate 
+            ? logDate.toLocaleString('vi-VN', { day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit', second: '2-digit' }) 
+            : '';
 
-    </div>
-  );
-};
+          // Format target (Ghép target_type và target_id)
+          const targetStr = [log.target_type || log.targetType, log.target_id || log.targetId].filter(Boolean).join(' / ');
 
-// --- STYLES ---
+          return {
+            id: log.id,
+            time: formattedTime,
+            rawDate: logDate ? logDate.toISOString().split('T')[0] : '', // Dùng để lọc ngày
+            accountName: log.fullName || 'Hệ thống / Ẩn danh', // Backend có thể join thêm fullName, nếu ko có thì mặc định
+            accountId: log.user_cccd || log.userCccd || 'N/A',
+            ip: log.ip_address || log.ipAddress || 'Không xác định',
+            actionType: log.action || 'KHÔNG RÕ',
+            target: targetStr || 'Hệ thống chung',
+            detail: log.description || '',
+            status: isError ? 'LỖI' : 'TỐT'
+          };
+        });
 
-// Buttons
-const btnExportStyle = { 
-  backgroundColor: '#fff', border: '1px solid #cbd5e1', color: '#1e293b', 
-  padding: '10px 16px', borderRadius: 8, fontWeight: 600, fontSize: 14, cursor: 'pointer',
-  display: 'flex', alignItems: 'center'
-};
-const btnFilterStyle = {
-  backgroundColor: '#0f172a', color: '#fff', border: 'none',
-  padding: '10px 24px', borderRadius: 8, fontWeight: 600, fontSize: 14, cursor: 'pointer',
-  display: 'flex', alignItems: 'center', whiteSpace: 'nowrap'
-};
-
-// Filter Bar
-const filterBarStyle = {
-  backgroundColor: '#fff', border: '1px solid #e2e8f0', borderRadius: 12,
-  padding: '16px', display: 'flex', gap: 16, alignItems: 'center', marginBottom: 24
-};
-const searchWrapperStyle = { position: 'relative', flex: 1 };
-const searchIconStyle = { position: 'absolute', left: 16, top: '50%', transform: 'translateY(-50%)', color: '#94a3b8' };
-const searchInputStyle = { 
-  width: '100%', padding: '10px 16px 10px 42px', borderRadius: 8, border: '1px solid #e2e8f0', 
-  fontSize: 14, outline: 'none', color: '#1e293b', backgroundColor: '#f8fafc' 
-};
-const selectStyle = { 
-  padding: '10px 16px', borderRadius: 8, border: '1px solid #e2e8f0', color: '#1e293b', 
-  fontSize: 14, outline: 'none', backgroundColor: '#fff', cursor: 'pointer', minWidth: '180px' 
-};
-const dateInputStyle = {
-  padding: '10px 16px', borderRadius: 8, border: '1px solid #e2e8f0', color: '#1e293b', 
-  fontSize: 14, outline: 'none', backgroundColor: '#fff', cursor: 'pointer', minWidth: '150px' 
-};
-
-// Table
-const tableCardStyle = { background: '#fff', borderRadius: 12, border: '1px solid #e2e8f0', overflow: 'hidden', padding: '0 24px' };
-const tableStyle = { width: '100%', borderCollapse: 'collapse' };
-const thRowStyle = { borderBottom: '1px solid #e2e8f0' };
-const thCellStyle = { padding: '20px 0', textAlign: 'left', fontSize: 11, fontWeight: 700, color: '#94a3b8', letterSpacing: 0.5, textTransform: 'uppercase' };
-const tdRowStyle = { borderBottom: '1px solid #f1f5f9' };
-const tdCellStyle = { padding: '20px 0', fontSize: 14, verticalAlign: 'top' };
-
-// Badges
-const getStatusBadgeStyle = (status) => {
-  const isGood = status === 'TỐT';
-  return {
-    display: 'inline-block',
-    padding: '4px 12px', 
-    borderRadius: 6, 
-    fontSize: 11, 
-    fontWeight: 800,
-    backgroundColor: isGood ? '#dcfce7' : '#fee2e2', 
-    color: isGood ? '#16a34a' : '#dc2626'
+        // Sắp xếp mới nhất lên đầu
+        mappedLogs.sort((a, b) => b.id - a.id);
+        setLogs(mappedLogs);
+      }
+    } catch (err) {
+      console.error(err);
+      setError(err.message);
+    } finally {
+      setIsLoading(false);
+    }
   };
+
+  // Logic Lọc dữ liệu
+  const filteredLogs = logs.filter(log => {
+    // 1. Lọc theo text (Tìm kiếm ID log, CCCD, IP, Tên)
+    const matchSearch = 
+      log.id.toString().includes(searchTerm) || 
+      log.accountId.includes(searchTerm) || 
+      log.ip.includes(searchTerm) ||
+      log.accountName.toLowerCase().includes(searchTerm.toLowerCase());
+    
+    // 2. Lọc theo Action
+    const matchAction = actionFilter === 'Tất cả hành động' || log.actionType === actionFilter;
+    
+    // 3. Lọc theo Ngày
+    const matchDate = !dateFilter || log.rawDate === dateFilter;
+
+    return matchSearch && matchAction && matchDate;
+  });
+
+  // Lấy danh sách các loại thao tác duy nhất để hiển thị vào thẻ select (Dropdown)
+  const uniqueActions = [...new Set(logs.map(log => log.actionType))];
+
+  // Hàm xuất CSV
+  const handleExportCSV = () => {
+    try {
+      const token = localStorage.getItem('token');
+      const baseUrl = 'http://localhost:8080';
+      window.open(`${baseUrl}/api/admin/reports/export?reportType=AUDIT_LOGS&format=csv&token=${token}`, '_blank');
+    } catch (err) {
+      alert("Lỗi khi xuất dữ liệu");
+    }
+  };
+
+  return (
+    <AdminLayout user={user}>
+      <div className="container py-4" style={{ maxWidth: '1140px' }}>
+        
+        {/* Header Section */}
+        <div className="d-flex flex-column flex-md-row justify-content-between align-items-md-center mb-4 gap-3">
+          <div>
+            <h3 className="fw-bold mb-1">Lịch sử thao tác</h3>
+            <p className="text-muted small mb-0">Tra cứu và kiểm toán các hành động trên hệ thống (Audit Logs)</p>
+          </div>
+          <div className="d-flex gap-2">
+            <button className="btn btn-light border fw-semibold px-3 py-2 shadow-sm" onClick={fetchAuditLogs}>
+              <i className="bi bi-arrow-clockwise"></i>
+            </button>
+            <button 
+              className="btn btn-outline-secondary fw-semibold px-4 py-2 d-flex align-items-center gap-2 shadow-sm" 
+              style={{ borderRadius: '8px' }}
+              onClick={handleExportCSV}
+            >
+              <i className="bi bi-download"></i> Xuất dữ liệu (CSV)
+            </button>
+          </div>
+        </div>
+
+        {error && <div className="alert alert-danger">{error}</div>}
+
+        {/* Filter Bar */}
+        <div className="card shadow-sm border-0 mb-4" style={{ borderRadius: '12px' }}>
+          <div className="card-body p-3">
+            <div className="row g-3 align-items-center">
+              {/* Search */}
+              <div className="col-12 col-lg-5 position-relative">
+                <i className="bi bi-search position-absolute text-muted" style={{ left: '25px', top: '50%', transform: 'translateY(-50%)' }}></i>
+                <input 
+                  type="text" 
+                  className="form-control py-2 bg-light border-0" 
+                  placeholder="Tra cứu ID Log, CCCD, IP..." 
+                  value={searchTerm}
+                  onChange={(e) => setSearchTerm(e.target.value)}
+                  style={{ paddingLeft: '40px', borderRadius: '8px' }}
+                />
+              </div>
+              
+              {/* Action Filter */}
+              <div className="col-12 col-md-4 col-lg-4">
+                <select 
+                  className="form-select py-2 bg-light border-0 fw-semibold text-secondary" 
+                  value={actionFilter} 
+                  onChange={(e) => setActionFilter(e.target.value)} 
+                  style={{ borderRadius: '8px' }}
+                >
+                  <option value="Tất cả hành động">Tất cả hành động</option>
+                  {uniqueActions.map(action => (
+                    <option key={action} value={action}>{action}</option>
+                  ))}
+                </select>
+              </div>
+
+              {/* Date Filter */}
+              <div className="col-12 col-md-4 col-lg-3">
+                <input 
+                  type="date" 
+                  className="form-control py-2 bg-light border-0 text-secondary fw-semibold" 
+                  value={dateFilter}
+                  onChange={(e) => setDateFilter(e.target.value)}
+                  style={{ borderRadius: '8px' }}
+                />
+              </div>
+            </div>
+          </div>
+        </div>
+
+        {/* Data Table */}
+        <div className="card shadow-sm border-0" style={{ borderRadius: '16px', overflow: 'hidden' }}>
+          {isLoading ? (
+            <div className="text-center py-5">
+              <div className="spinner-border text-danger" role="status"></div>
+              <div className="mt-3 text-muted small">Đang lấy dữ liệu log...</div>
+            </div>
+          ) : (
+            <div className="table-responsive">
+              <table className="table table-borderless table-hover align-middle mb-0" style={{ minWidth: '900px' }}>
+                <thead className="bg-light border-bottom">
+                  <tr>
+                    <th className="py-3 px-4 text-muted small fw-bold" style={{ letterSpacing: '0.5px' }}>THỜI GIAN</th>
+                    <th className="py-3 px-4 text-muted small fw-bold" style={{ letterSpacing: '0.5px' }}>TÀI KHOẢN (NGƯỜI XỬ LÝ)</th>
+                    <th className="py-3 px-4 text-muted small fw-bold" style={{ letterSpacing: '0.5px' }}>LOẠI THAO TÁC</th>
+                    <th className="py-3 px-4 text-muted small fw-bold" style={{ letterSpacing: '0.5px' }}>ĐỐI TƯỢNG TÁC ĐỘNG</th>
+                    <th className="py-3 px-4 text-muted small fw-bold" style={{ letterSpacing: '0.5px' }}>CHI TIẾT</th>
+                    <th className="py-3 px-4 text-muted small fw-bold text-end" style={{ letterSpacing: '0.5px' }}>TRẠNG THÁI</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {filteredLogs.map((log, index) => (
+                    <tr key={log.id} className={index !== filteredLogs.length - 1 ? "border-bottom" : ""}>
+                      <td className="py-3 px-4 text-muted small text-nowrap">
+                        <div className="fw-semibold text-dark">{log.time.split(' ')[1]}</div>
+                        <div className="small">{log.time.split(' ')[0]}</div>
+                      </td>
+                      <td className="py-3 px-4">
+                        <div className="fw-bold text-dark">{log.accountName}</div>
+                        <div className="text-muted small mt-1 font-monospace">
+                          {log.accountId} <span className="mx-1">•</span> IP: {log.ip}
+                        </div>
+                      </td>
+                      <td className="py-3 px-4">
+                        <span className="badge bg-primary bg-opacity-10 text-primary px-3 py-2 rounded-pill">
+                          {log.actionType}
+                        </span>
+                      </td>
+                      <td className="py-3 px-4 text-secondary small fw-semibold font-monospace">
+                        {log.target}
+                      </td>
+                      <td className="py-3 px-4 text-secondary small" style={{ maxWidth: '250px', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }} title={log.detail}>
+                        {log.detail || '-'}
+                      </td>
+                      <td className="py-3 px-4 text-end">
+                        <span className={`badge rounded-pill px-3 py-2 ${log.status === 'TỐT' ? 'bg-success bg-opacity-10 text-success' : 'bg-danger bg-opacity-10 text-danger'}`}>
+                          {log.status === 'TỐT' ? 'Thành công' : 'Lỗi/Từ chối'}
+                        </span>
+                      </td>
+                    </tr>
+                  ))}
+                  {filteredLogs.length === 0 && (
+                    <tr>
+                      <td colSpan="6" className="text-center py-5 text-muted">
+                        <i className="bi bi-inbox fs-1 d-block mb-3 text-secondary opacity-50"></i>
+                        Không tìm thấy nhật ký thao tác nào phù hợp với bộ lọc
+                      </td>
+                    </tr>
+                  )}
+                </tbody>
+              </table>
+            </div>
+          )}
+        </div>
+
+      </div>
+    </AdminLayout>
+  );
 };
 
 export default OperationHistory;

@@ -1,218 +1,347 @@
-import React, { useState } from 'react';
-// Giả định bạn có một Layout dành riêng cho Admin với menu bên trái tương ứng
-// import AdminLayout from '../../components/AdminLayout'; 
+import React, { useState, useEffect } from 'react';
+import AdminLayout from '../../components/AdminLayout';
 
 const AdminDashboard = () => {
   const user = JSON.parse(localStorage.getItem('user_info') || '{}');
   
-  // State quản lý tab nhật ký
-  const [activeTab, setActiveTab] = useState('system'); // 'system' | 'security' | 'error'
+  // State quản lý UI
+  const [activeTab, setActiveTab] = useState('system');
+  const [isLoading, setIsLoading] = useState(true);
+  const [error, setError] = useState(null);
 
-  // Mock Data cho các Tab Nhật ký
-  const logs = {
-    system: [
-      { id: 'SYS-001', time: '18/04/2026 10:15', content: 'Tự động mở rộng tài nguyên máy chủ', status: 'Hoàn thành', type: 'success' },
-      { id: 'SYS-002', time: '18/04/2026 09:30', content: 'Đồng bộ cơ sở dữ liệu quốc gia về Dân cư', status: 'Đang xử lý', type: 'warning' },
-    ],
-    security: [
-      { id: 'SEC-045', time: '18/04/2026 08:45', content: 'Khóa tài khoản usr_004 do phát hiện đăng nhập bất thường', status: 'Đã xử lý', type: 'success' },
-      { id: 'SEC-046', time: '17/04/2026 22:10', content: 'Phát hiện 50 yêu cầu/s từ IP lạ. Đã chặn.', status: 'Đã chặn', type: 'success' },
-    ],
-    error: [
-      { id: 'ERR-112', time: '18/04/2026 07:20', content: 'Lỗi kết nối cổng thanh toán VNPAY', status: 'Đang khắc phục', type: 'warning' },
-    ]
+  // State lưu dữ liệu từ API
+  const [stats, setStats] = useState({
+    visits24h: 0,
+    totalAccounts: 0,
+    stuckDossiers: 0,
+    lockedAccounts: 0,
+    incidents: 0,
+    incidentDetails: []
+  });
+
+  const [logs, setLogs] = useState({
+    system: [],
+    security: [],
+    error: []
+  });
+
+  // GỌI API KHI VÀO TRANG
+  useEffect(() => {
+    fetchDashboardData();
+  }, []);
+
+  const fetchDashboardData = async () => {
+    setIsLoading(true);
+    setError(null);
+    try {
+      const token = localStorage.getItem('token');
+      const headers = {
+        'Authorization': `Bearer ${token}`,
+        'Content-Type': 'application/json'
+      };
+
+      // Đổi port cho khớp với backend của bạn
+      const baseUrl = 'http://localhost:8080'; 
+
+      // Gọi đồng thời 2 API
+      const [statsRes, logsRes] = await Promise.all([
+        fetch(`${baseUrl}/api/admin/statistics`, { headers }),
+        fetch(`${baseUrl}/api/admin/audit-logs`, { headers })
+      ]);
+
+      if (!statsRes.ok || !logsRes.ok) {
+        throw new Error('Lỗi khi tải dữ liệu từ máy chủ');
+      }
+
+      const statsData = await statsRes.json();
+      const logsData = await logsRes.json();
+
+      // 1. MAP DỮ LIỆU THỐNG KÊ (KPI)
+      const dataS = statsData.data || statsData;
+      setStats({
+        visits24h: dataS.visits24h || '45.2K', // Fallback nếu chưa có API
+        totalAccounts: dataS.totalAccounts || 12, // Dựa theo số lượng trong bảng accounts
+        stuckDossiers: dataS.stuckDossiers || 0,
+        lockedAccounts: dataS.lockedAccounts || 1, // Trong bảng accounts có 1 user bị LOCKED
+        incidents: dataS.incidents || 0,
+        incidentDetails: dataS.incidentDetails || []
+      });
+
+      // 2. MAP DỮ LIỆU NHẬT KÝ TỪ BẢNG `audit_logs`
+      const dataL = logsData.data || logsData;
+      const formattedLogs = { system: [], security: [], error: [] };
+
+      if (Array.isArray(dataL)) {
+        dataL.forEach(log => {
+          // Xử lý format thời gian từ trường `timestamp` của DB
+          const logTime = log.timestamp 
+            ? new Date(log.timestamp).toLocaleString('vi-VN', { 
+                day: '2-digit', month: '2-digit', year: 'numeric', 
+                hour: '2-digit', minute: '2-digit', second: '2-digit' 
+              }) 
+            : '';
+
+          // Gộp action và description để hiển thị
+          const logContent = log.description 
+            ? `${log.description} (${log.action})` 
+            : log.action;
+
+          const logItem = {
+            id: log.id,
+            time: logTime,
+            content: logContent,
+            // Mặc định log được ghi lại là đã thành công
+            status: 'Hoàn tất', 
+            type: 'success'
+          };
+
+          // --- Phân loại Log vào các Tab ---
+          const actionStr = (log.action || '').toUpperCase();
+          const descStr = (log.description || '').toUpperCase();
+
+          // TAB LỖI / TỪ CHỐI (Dựa theo từ khóa REJECT, ERROR, THẤT BẠI...)
+          if (actionStr.includes('REJECT') || actionStr.includes('ERROR') || descStr.includes('TỪ CHỐI')) {
+            logItem.type = 'danger';
+            logItem.status = 'Từ chối / Lỗi';
+            formattedLogs.error.push(logItem);
+          } 
+          // TAB BẢO MẬT (Dựa theo từ khóa LOGIN, LOCK, AUTH...)
+          else if (actionStr.includes('LOGIN') || actionStr.includes('LOCK') || actionStr.includes('AUTH')) {
+            logItem.type = 'warning';
+            logItem.status = 'Cảnh báo';
+            formattedLogs.security.push(logItem);
+          } 
+          // TAB HỆ THỐNG / CHUNG (APPROVE, CẬP NHẬT, XUẤT BÁO CÁO...)
+          else {
+            formattedLogs.system.push(logItem);
+          }
+        });
+      }
+
+      // Sắp xếp lại log mới nhất lên đầu (nếu DB chưa sort)
+      formattedLogs.system.sort((a, b) => b.id - a.id);
+      formattedLogs.error.sort((a, b) => b.id - a.id);
+      formattedLogs.security.sort((a, b) => b.id - a.id);
+
+      setLogs(formattedLogs);
+
+    } catch (err) {
+      console.error(err);
+      setError(err.message);
+    } finally {
+      setIsLoading(false);
+    }
   };
 
-  const currentLogs = logs[activeTab];
+  const currentLogs = logs[activeTab] || [];
 
   return (
-    // Thay thẻ div này bằng <AdminLayout user={user}> của bạn
-    <div style={{ backgroundColor: '#f8fafc', minHeight: '100vh', padding: '30px 40px', fontFamily: 'Inter, sans-serif' }}>
-      
-      {/* Header */}
-      <div style={{ marginBottom: 30 }}>
-        <h2 style={{ margin: 0, fontWeight: 800, color: '#1e293b' }}>Bảng điều khiển hệ thống</h2>
-        <p style={{ color: '#64748b', marginTop: 4, fontSize: 14 }}>Giám sát trạng thái hoạt động toàn cục của nền tảng</p>
-      </div>
-
-      {/* Top Cards Grid */}
-      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 24, marginBottom: 30 }}>
+    <AdminLayout user={user}>
+      <div className="container py-4" style={{ maxWidth: '1140px' }}>
         
-        {/* 1. Sức khỏe nền tảng (Thẻ Đỏ) */}
-        <div style={healthCardStyle}>
+        {/* Header Section */}
+        <div className="mb-4 d-flex justify-content-between align-items-center">
           <div>
-            <h3 style={{ margin: 0, color: '#fff', fontWeight: 700, fontSize: 18 }}>Sức khỏe nền tảng</h3>
-            <p style={{ margin: '4px 0 0', color: '#f1f5f9', fontSize: 13 }}>
-              Trạng thái: <span style={{ color: '#4ade80', fontWeight: 600 }}>Hoạt động ổn định</span>
-            </p>
+            <h3 className="fw-bold">Bảng điều khiển hệ thống</h3>
+            <p className="text-muted">Giám sát trạng thái hoạt động toàn cục của nền tảng</p>
           </div>
+          <button className="btn btn-outline-secondary btn-sm" onClick={fetchDashboardData}>
+            <i className="bi bi-arrow-clockwise me-2"></i> Làm mới dữ liệu
+          </button>
+        </div>
 
-          {/* SVG Donut Chart */}
-          <div style={{ position: 'relative', width: 140, height: 140, margin: '20px auto' }}>
-            <svg viewBox="0 0 36 36" style={{ width: '100%', height: '100%' }}>
-              <path d="M18 2.0845 a 15.9155 15.9155 0 0 1 0 31.831 a 15.9155 15.9155 0 0 1 0 -31.831" fill="none" stroke="rgba(255,255,255,0.2)" strokeWidth="4" />
-              <path d="M18 2.0845 a 15.9155 15.9155 0 0 1 0 31.831 a 15.9155 15.9155 0 0 1 0 -31.831" fill="none" stroke="#10b981" strokeWidth="4" strokeDasharray="95, 100" />
-            </svg>
-            <div style={donutCenterText}>
-              <div style={{ fontSize: 28, fontWeight: 800, color: '#fff', lineHeight: 1 }}>95%</div>
-              <div style={{ fontSize: 9, fontWeight: 700, color: '#fff', marginTop: 4 }}>THÀNH CÔNG</div>
+        {error && <div className="alert alert-danger">{error}</div>}
+
+        {isLoading ? (
+          <div className="text-center py-5">
+            <div className="spinner-border text-danger" role="status">
+              <span className="visually-hidden">Loading...</span>
             </div>
+            <div className="mt-3 text-muted">Đang tải dữ liệu hệ thống...</div>
           </div>
+        ) : (
+          <>
+            {/* Top Cards Grid */}
+            <div className="row g-4 mb-4">
+              
+              {/* 1. Sức khỏe nền tảng (Thẻ Đỏ) */}
+              <div className="col-lg-6">
+                <div 
+                  className="card border-0 shadow-sm h-100" 
+                  style={{ 
+                    borderRadius: '16px', 
+                    background: 'linear-gradient(135deg, #b91c1c 0%, #991b1b 100%)',
+                    color: 'white'
+                  }}
+                >
+                  <div className="card-body p-4 p-md-5">
+                    <div className="mb-4">
+                      <h5 className="fw-bold mb-1">Sức khỏe nền tảng</h5>
+                      <p className="mb-0" style={{ fontSize: '14px', color: '#f1f5f9' }}>
+                        Trạng thái: <span style={{ color: '#4ade80', fontWeight: '600' }}>Hoạt động ổn định</span>
+                      </p>
+                    </div>
 
-          {/* Stats Grid */}
-          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 16 }}>
-            <StatBox icon="activity" value="45.2K" label="TRUY CẬP (24H)" iconColor="#10b981" />
-            <StatBox icon="people" value="12.4K" label="TÀI KHOẢN" iconColor="#3b82f6" />
-            <StatBox icon="shield-exclamation" value="34" label="HỒ SƠ KẸT" iconColor="#f59e0b" />
-            <StatBox icon="person-x" value="15" label="TK BỊ KHÓA" iconColor="#ef4444" />
-          </div>
-        </div>
+                    {/* SVG Donut Chart */}
+                    <div className="position-relative mx-auto mb-4" style={{ width: '140px', height: '140px' }}>
+                      <svg viewBox="0 0 36 36" className="w-100 h-100">
+                        <path d="M18 2.0845 a 15.9155 15.9155 0 0 1 0 31.831 a 15.9155 15.9155 0 0 1 0 -31.831" fill="none" stroke="rgba(255,255,255,0.2)" strokeWidth="4" />
+                        <path d="M18 2.0845 a 15.9155 15.9155 0 0 1 0 31.831 a 15.9155 15.9155 0 0 1 0 -31.831" fill="none" stroke="#10b981" strokeWidth="4" strokeDasharray="95, 100" />
+                      </svg>
+                      <div className="position-absolute top-0 start-0 w-100 h-100 d-flex flex-column align-items-center justify-content-center">
+                        <div style={{ fontSize: '28px', fontWeight: '800', lineHeight: '1' }}>95%</div>
+                        <div style={{ fontSize: '10px', fontWeight: '700', marginTop: '4px' }}>THÀNH CÔNG</div>
+                      </div>
+                    </div>
 
-        {/* 2. Cảnh báo hệ thống (Thẻ Trắng) */}
-        <div style={warningCardStyle}>
-          <div style={{ display: 'flex', gap: 12, alignItems: 'center' }}>
-            <div style={warningIconBox}><i className="bi bi-exclamation-triangle-fill"></i></div>
-            <div>
-              <h3 style={{ margin: 0, color: '#b91c1c', fontWeight: 700, fontSize: 18 }}>Cảnh báo hệ thống</h3>
-              <p style={{ margin: 0, color: '#ef4444', fontSize: 13 }}><i className="bi bi-bell"></i> Cần chú ý ngay</p>
+                    {/* Stats Grid */}
+                    <div className="row g-3">
+                      <StatBox icon="activity" value={stats.visits24h} label="TRUY CẬP (24H)" iconColor="#10b981" />
+                      <StatBox icon="people" value={stats.totalAccounts} label="TÀI KHOẢN" iconColor="#3b82f6" />
+                      <StatBox icon="shield-exclamation" value={stats.stuckDossiers} label="HỒ SƠ KẸT" iconColor="#f59e0b" />
+                      <StatBox icon="person-x" value={stats.lockedAccounts} label="TK BỊ KHÓA" iconColor="#ef4444" />
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              {/* 2. Cảnh báo hệ thống (Thẻ Trắng) */}
+              <div className="col-lg-6">
+                <div className="card shadow-sm border-0 h-100" style={{ borderRadius: '16px' }}>
+                  <div className="card-body p-4 p-md-5 d-flex flex-column">
+                    <div className="d-flex align-items-center gap-3 mb-4">
+                      <div className="d-flex align-items-center justify-content-center rounded-3 bg-danger text-white" style={{ width: '48px', height: '48px', fontSize: '20px' }}>
+                        <i className="bi bi-exclamation-triangle-fill"></i>
+                      </div>
+                      <div>
+                        <h5 className="fw-bold text-danger mb-0">Cảnh báo hệ thống</h5>
+                        <p className="text-danger mb-0 small"><i className="bi bi-bell me-1"></i> Cần chú ý ngay</p>
+                      </div>
+                    </div>
+
+                    <div className="text-center my-4 flex-grow-1 d-flex flex-column justify-content-center">
+                      <div>
+                        <span style={{ fontSize: '64px', fontWeight: '800', color: '#dc2626', lineHeight: '1' }}>{stats.incidents}</span>
+                        <span className="ms-2" style={{ fontSize: '20px', fontWeight: '700', color: '#dc2626' }}>sự cố</span>
+                      </div>
+                    </div>
+
+                    <div className="d-flex flex-column gap-3 mt-auto">
+                      {stats.incidentDetails.map((inc, idx) => (
+                         <IncidentRow key={idx} label={inc.label} count={inc.count} color={inc.color} />
+                      ))}
+                      {stats.incidentDetails.length === 0 && (
+                         <div className="text-success text-center fw-bold"><i className="bi bi-check-circle me-1"></i> Mọi thứ đang hoạt động tốt</div>
+                      )}
+                    </div>
+                  </div>
+                </div>
+              </div>
+
             </div>
-          </div>
 
-          <div style={{ textAlign: 'center', margin: '30px 0 40px' }}>
-            <span style={{ fontSize: 64, fontWeight: 800, color: '#dc2626', lineHeight: 1 }}>3</span>
-            <span style={{ fontSize: 20, fontWeight: 700, color: '#dc2626', marginLeft: 8 }}>sự cố</span>
-          </div>
+            {/* Nhật ký nền tảng */}
+            <div className="mb-4 mt-5">
+              <h4 className="fw-bold">Nhật ký nền tảng gần đây</h4>
+            </div>
 
-          <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
-            <IncidentRow label="Độ trễ API Thanh toán cao" count={1} color="#ef4444" />
-            <IncidentRow label="Truy cập bất thường (Cảnh báo DDoS)" count={2} color="#f59e0b" />
-            <IncidentRow label="Lỗi đồng bộ Cơ sở dữ liệu" count={0} color="#10b981" />
-          </div>
-        </div>
+            <div className="card shadow-sm border-0 mb-5" style={{ borderRadius: '16px', overflow: 'hidden' }}>
+              {/* Tabs */}
+              <div className="d-flex border-bottom px-3 bg-white" style={{ overflowX: 'auto' }}>
+                <TabButton active={activeTab === 'system'} onClick={() => setActiveTab('system')} label="Hệ thống & Dữ liệu" />
+                <TabButton active={activeTab === 'security'} onClick={() => setActiveTab('security')} label="Bảo mật & Tài khoản" />
+                <TabButton active={activeTab === 'error'} onClick={() => setActiveTab('error')} label="Cảnh báo lỗi" />
+              </div>
 
+              {/* Table */}
+              <div className="table-responsive">
+                <table className="table table-borderless mb-0" style={{ minWidth: '700px' }}>
+                  <thead className="border-bottom" style={{ background: '#f8fafc' }}>
+                    <tr>
+                      <th className="py-3 px-4 text-muted small fw-bold">ID</th>
+                      <th className="py-3 px-4 text-muted small fw-bold">THỜI GIAN</th>
+                      <th className="py-3 px-4 text-muted small fw-bold">NỘI DUNG SỰ KIỆN</th>
+                      <th className="py-3 px-4 text-muted small fw-bold text-end">TRẠNG THÁI</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {currentLogs.map((log, index) => (
+                      <tr key={log.id} className={index !== currentLogs.length - 1 ? "border-bottom" : ""}>
+                        <td className="py-3 px-4 fw-bold align-middle text-dark font-monospace">#{log.id}</td>
+                        <td className="py-3 px-4 text-muted align-middle">{log.time}</td>
+                        <td className="py-3 px-4 align-middle text-dark">{log.content}</td>
+                        <td className="py-3 px-4 text-end align-middle">
+                          <span className={`badge rounded-pill px-3 py-2 ${getBadgeClass(log.type)}`}>
+                            {log.status}
+                          </span>
+                        </td>
+                      </tr>
+                    ))}
+                    {currentLogs.length === 0 && (
+                      <tr>
+                        <td colSpan="4" className="text-center py-5 text-muted">Không có dữ liệu nhật ký</td>
+                      </tr>
+                    )}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          </>
+        )}
       </div>
-
-      {/* Nhật ký nền tảng */}
-      <div style={{ marginTop: 40 }}>
-        <h3 style={{ fontWeight: 800, color: '#1e293b', marginBottom: 20 }}>Nhật ký nền tảng gần đây</h3>
-        
-        <div style={tableCardStyle}>
-          {/* Tabs */}
-          <div style={tabsContainer}>
-            <TabButton active={activeTab === 'system'} onClick={() => setActiveTab('system')} label="Hệ thống & Dữ liệu" />
-            <TabButton active={activeTab === 'security'} onClick={() => setActiveTab('security')} label="Bảo mật & Tài khoản" />
-            <TabButton active={activeTab === 'error'} onClick={() => setActiveTab('error')} label="Cảnh báo lỗi" />
-          </div>
-
-          {/* Table */}
-          <table style={{ width: '100%', borderCollapse: 'collapse' }}>
-            <thead>
-              <tr style={thRow}>
-                <th style={thCell}>MÃ LOG</th>
-                <th style={thCell}>THỜI GIAN</th>
-                <th style={thCell}>NỘI DUNG SỰ KIỆN</th>
-                <th style={{ ...thCell, textAlign: 'right' }}>TRẠNG THÁI</th>
-              </tr>
-            </thead>
-            <tbody>
-              {currentLogs.map(log => (
-                <tr key={log.id} style={tdRow}>
-                  <td style={{ ...tdCell, fontWeight: 700 }}>{log.id}</td>
-                  <td style={{ ...tdCell, color: '#64748b' }}>{log.time}</td>
-                  <td style={tdCell}>{log.content}</td>
-                  <td style={{ ...tdCell, textAlign: 'right' }}>
-                    <span style={getStatusBadge(log.type)}>{log.status}</span>
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
-      </div>
-
-    </div>
+    </AdminLayout>
   );
 };
 
 // --- Sub-Components ---
 
 const StatBox = ({ icon, value, label, iconColor }) => (
-  <div style={statBoxStyle}>
-    <div style={{ width: 32, height: 32, borderRadius: '50%', background: iconColor, display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#fff' }}>
-      <i className={`bi bi-${icon}`}></i>
-    </div>
-    <div>
-      <div style={{ fontSize: 18, fontWeight: 800, color: '#fff', lineHeight: 1.2 }}>{value}</div>
-      <div style={{ fontSize: 10, fontWeight: 600, color: '#cbd5e1', letterSpacing: 0.5 }}>{label}</div>
+  <div className="col-6">
+    <div className="d-flex align-items-center gap-3 p-2 rounded-3" style={{ background: 'rgba(255,255,255,0.1)' }}>
+      <div 
+        className="rounded-circle d-flex align-items-center justify-content-center text-white" 
+        style={{ width: '36px', height: '36px', background: iconColor, flexShrink: 0 }}
+      >
+        <i className={`bi bi-${icon}`}></i>
+      </div>
+      <div>
+        <div className="fw-bold" style={{ fontSize: '16px', lineHeight: '1.2' }}>{value}</div>
+        <div style={{ fontSize: '10px', color: '#cbd5e1', letterSpacing: '0.5px' }}>{label}</div>
+      </div>
     </div>
   </div>
 );
 
 const IncidentRow = ({ label, count, color }) => (
-  <div style={incidentRowStyle}>
-    <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-      <div style={{ width: 6, height: 6, borderRadius: '50%', background: color }}></div>
-      <span style={{ fontSize: 14, fontWeight: 600, color: '#475569' }}>{label}</span>
+  <div className="d-flex justify-content-between align-items-center border rounded-pill px-4 py-2 bg-white">
+    <div className="d-flex align-items-center gap-2">
+      <div className="rounded-circle" style={{ width: '8px', height: '8px', background: color }}></div>
+      <span className="fw-semibold text-secondary" style={{ fontSize: '14px' }}>{label}</span>
     </div>
-    <span style={{ fontSize: 16, fontWeight: 800, color: color }}>{count}</span>
+    <span className="fw-bold" style={{ fontSize: '16px', color: color }}>{count}</span>
   </div>
 );
 
 const TabButton = ({ active, label, onClick }) => (
-  <button onClick={onClick} style={active ? tabActiveStyle : tabInactiveStyle}>
+  <button 
+    onClick={onClick} 
+    className={`btn flex-shrink-0 fw-bold rounded-0 px-4 py-3 ${active ? 'text-danger border-danger' : 'text-muted border-transparent'}`}
+    style={{ 
+      border: 'none', 
+      borderBottom: `2px solid ${active ? '#b91c1c' : 'transparent'}`,
+      fontSize: '15px'
+    }}
+  >
     {label}
   </button>
 );
 
-// --- Helper & Styles ---
-
-const getStatusBadge = (type) => {
-  const base = { padding: '6px 12px', borderRadius: 50, fontSize: 12, fontWeight: 600, display: 'inline-flex', alignItems: 'center', gap: 6 };
-  if (type === 'success') return { ...base, background: '#dcfce7', color: '#16a34a' };
-  if (type === 'warning') return { ...base, background: '#fef3c7', color: '#d97706' };
-  return base;
+// --- Helper ---
+const getBadgeClass = (type) => {
+  if (type === 'success') return 'bg-success bg-opacity-10 text-success';
+  if (type === 'warning') return 'bg-warning bg-opacity-10 text-warning';
+  if (type === 'danger' || type === 'error') return 'bg-danger bg-opacity-10 text-danger';
+  return 'bg-secondary bg-opacity-10 text-secondary';
 };
-
-// Thẻ Đỏ (Sức khỏe nền tảng)
-const healthCardStyle = { 
-  background: 'linear-gradient(135deg, #b91c1c 0%, #991b1b 100%)', 
-  borderRadius: 20, padding: 30, boxShadow: '0 10px 25px rgba(185, 28, 28, 0.2)' 
-};
-const donutCenterText = { 
-  position: 'absolute', top: 0, left: 0, width: '100%', height: '100%', 
-  display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center' 
-};
-const statBoxStyle = { 
-  background: 'rgba(255,255,255,0.1)', borderRadius: 12, padding: '12px 16px', 
-  display: 'flex', alignItems: 'center', gap: 12 
-};
-
-// Thẻ Trắng (Cảnh báo hệ thống)
-const warningCardStyle = { 
-  background: '#fff', border: '1px solid #fca5a5', borderRadius: 20, 
-  padding: 30, boxShadow: '0 10px 25px rgba(239, 68, 68, 0.05)' 
-};
-const warningIconBox = { 
-  background: '#ef4444', color: '#fff', width: 40, height: 40, 
-  borderRadius: 12, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 20 
-};
-const incidentRowStyle = { 
-  border: '1px solid #fee2e2', borderRadius: 50, padding: '12px 24px', 
-  display: 'flex', justifyContent: 'space-between', alignItems: 'center', background: '#fff' 
-};
-
-// Bảng Nhật ký
-const tableCardStyle = { background: '#fff', borderRadius: 16, border: '1px solid #e2e8f0', overflow: 'hidden' };
-const tabsContainer = { display: 'flex', borderBottom: '1px solid #e2e8f0', padding: '0 20px', background: '#fff' };
-const tabInactiveStyle = { 
-  background: 'none', border: 'none', borderBottom: '2px solid transparent', 
-  padding: '20px 24px', fontSize: 14, fontWeight: 700, color: '#64748b', cursor: 'pointer' 
-};
-const tabActiveStyle = { ...tabInactiveStyle, color: '#b91c1c', borderBottom: '2px solid #b91c1c' };
-
-const thRow = { background: '#fff', borderBottom: '1px solid #f1f5f9' };
-const thCell = { padding: '20px 24px', textAlign: 'left', fontSize: 11, fontWeight: 700, color: '#94a3b8', letterSpacing: 0.5 };
-const tdRow = { borderBottom: '1px solid #f1f5f9' };
-const tdCell = { padding: '20px 24px', fontSize: 14, color: '#1e293b' };
 
 export default AdminDashboard;

@@ -153,18 +153,20 @@ const AdminLayout = ({ children, user }) => {
               onClick={() => navigate('/admin/users')}
             />
 
+            {/* ĐÃ FIX LINK */}
             <NavItem
-              active={location.pathname === '/admin/role-delegation'}
+              active={location.pathname === '/admin/roles'}
               icon="bi-shield-check"
               label="Phân & Ủy quyền"
-              onClick={() => navigate('/admin/role-delegation')}
+              onClick={() => navigate('/admin/roles')} 
             />
 
+            {/* ĐÃ FIX LINK */}
             <NavItem
-              active={location.pathname === '/admin/operation-history'}
+              active={location.pathname === '/admin/operations'}
               icon="bi-clock-history"
               label="Lịch sử thao tác"
-              onClick={() => navigate('/admin/operation-history')}
+              onClick={() => navigate('/admin/operations')}
             />
 
             <NavItem
@@ -174,11 +176,12 @@ const AdminLayout = ({ children, user }) => {
               onClick={() => navigate('/admin/report-stats')}
             />
 
+            {/* ĐÃ FIX LINK */}
             <NavItem
-              active={location.pathname === '/admin/category-management'}
+              active={location.pathname === '/admin/categories'}
               icon="bi-database"
               label="Quản lý danh mục"
-              onClick={() => navigate('/admin/category-management')}
+              onClick={() => navigate('/admin/categories')}
             />
 
             <NavItem

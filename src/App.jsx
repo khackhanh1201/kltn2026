@@ -7,7 +7,7 @@ import {
   useNavigate,
 } from 'react-router-dom';
 
-// Import các trang
+// ==================== IMPORT CÁC TRANG USER ====================
 import LoginPage from './presentation/pages/LoginPage';
 import HomePage from './presentation/pages/HomePage';
 import LandTaxPage from './presentation/pages/user/LandTaxPage';
@@ -18,24 +18,56 @@ import SubmitDeclarationPage from './presentation/pages/user/SubmitDeclarationPa
 import ComplaintPage from './presentation/pages/user/ComplaintPage';
 import PaymentPage from './presentation/pages/user/PaymentPage';
 import SearchPage from './presentation/pages/user/SearchPage';
-import AccountPage from './presentation/pages/user/AccountPage';   // ← Trang Tài khoản
+import AccountPage from './presentation/pages/user/AccountPage';
+
+// ==================== IMPORT CÁC TRANG ADMIN ====================
+import AdminReportStats from './presentation/pages/admin/AdminReportStats';
+import AdminDashboard from './presentation/pages/admin/AdminDashboard';
+import CategoryManagement from './presentation/pages/admin/CategoryManagement';
+import OperationHistory from './presentation/pages/admin/OperationHistory';
+import RoleDelegation from './presentation/pages/admin/RoleDelegation';
+import UserManagement from './presentation/pages/admin/UserManagement';
 
 import 'bootstrap/dist/css/bootstrap.min.css';
 import 'bootstrap-icons/font/bootstrap-icons.css';
 import './index.css';
 
-// Protected Route
-const ProtectedRoute = ({ children }) => {
+// 1. NÂNG CẤP PROTECTED ROUTE ĐỂ BẢO VỆ THEO ROLE
+const ProtectedRoute = ({ children, allowedRoles }) => {
   const token = localStorage.getItem('token');
-  return token ? children : <Navigate to="/" replace />;
+  const role = localStorage.getItem('role');
+
+  // Chưa đăng nhập -> Về trang Login
+  if (!token) {
+    return <Navigate to="/" replace />;
+  }
+
+  // Nếu route có yêu cầu quyền cụ thể, mà người dùng không có quyền đó
+  if (allowedRoles && !allowedRoles.includes(role)) {
+    // Admin đi lạc vào trang User -> Đẩy về trang Dashboard của Admin
+    if (role === 'ROLE_ADMIN') {
+      return <Navigate to="/admin/dashboard" replace />;
+    }
+    // User đi lạc vào trang Admin -> Đẩy về trang chủ User
+    return <Navigate to="/home" replace />;
+  }
+
+  // Hợp lệ
+  return children;
 };
 
 // AppRoutes
 const AppRoutes = () => {
   const navigate = useNavigate();
 
+  // 2. CHUYỂN HƯỚNG LINH HOẠT THEO ROLE SAU KHI ĐĂNG NHẬP
   const handleLoginSuccess = () => {
-    navigate('/home');
+    const role = localStorage.getItem('role');
+    if (role === 'ROLE_ADMIN') {
+      navigate('/admin/dashboard'); // Đổi trang mặc định của Admin thành Dashboard
+    } else {
+      navigate('/home');
+    }
   };
 
   return (
@@ -46,74 +78,146 @@ const AppRoutes = () => {
         element={<LoginPage onLoginSuccess={handleLoginSuccess} />} 
       />
 
-      {/* ==================== PROTECTED ==================== */}
+      {/* ==================== PROTECTED ADMIN ==================== */}
+      <Route 
+        path="/admin/dashboard" 
+        element={
+          <ProtectedRoute allowedRoles={['ROLE_ADMIN']}>
+            <AdminDashboard />
+          </ProtectedRoute>
+        } 
+      />
+      <Route 
+        path="/admin/report-stats" 
+        element={
+          <ProtectedRoute allowedRoles={['ROLE_ADMIN']}>
+            <AdminReportStats />
+          </ProtectedRoute>
+        } 
+      />
+      <Route 
+        path="/admin/categories" 
+        element={
+          <ProtectedRoute allowedRoles={['ROLE_ADMIN']}>
+            <CategoryManagement />
+          </ProtectedRoute>
+        } 
+      />
+      <Route 
+        path="/admin/operations" 
+        element={
+          <ProtectedRoute allowedRoles={['ROLE_ADMIN']}>
+            <OperationHistory />
+          </ProtectedRoute>
+        } 
+      />
+      <Route 
+        path="/admin/roles" 
+        element={
+          <ProtectedRoute allowedRoles={['ROLE_ADMIN']}>
+            <RoleDelegation />
+          </ProtectedRoute>
+        } 
+      />
+      <Route 
+        path="/admin/users" 
+        element={
+          <ProtectedRoute allowedRoles={['ROLE_ADMIN']}>
+            <UserManagement />
+          </ProtectedRoute>
+        } 
+      />
 
-      {/* Trang chủ */}
+      {/* ==================== PROTECTED USER ==================== */}
       <Route 
         path="/home" 
-        element={<ProtectedRoute><HomePage /></ProtectedRoute>} 
+        element={
+          <ProtectedRoute allowedRoles={['ROLE_CITIZEN']}>
+            <HomePage />
+          </ProtectedRoute>
+        } 
       />
-
-      {/* Đất đai - Tổng quan */}
       <Route 
         path="/land-tax" 
-        element={<ProtectedRoute><LandTaxPage /></ProtectedRoute>} 
+        element={
+          <ProtectedRoute allowedRoles={['ROLE_CITIZEN']}>
+            <LandTaxPage />
+          </ProtectedRoute>
+        } 
       />
-
-      {/* Thông tin đất đai */}
       <Route 
         path="/land-information" 
-        element={<ProtectedRoute><LandInformationPage /></ProtectedRoute>} 
+        element={
+          <ProtectedRoute allowedRoles={['ROLE_CITIZEN']}>
+            <LandInformationPage />
+          </ProtectedRoute>
+        } 
       />
-
-      {/* Thuế đất */}
       <Route 
         path="/tax" 
-        element={<ProtectedRoute><TaxPage /></ProtectedRoute>} 
+        element={
+          <ProtectedRoute allowedRoles={['ROLE_CITIZEN']}>
+            <TaxPage />
+          </ProtectedRoute>
+        } 
       />
-
-      {/* Thanh toán */}
       <Route 
         path="/payment" 
-        element={<ProtectedRoute><PaymentPage /></ProtectedRoute>} 
+        element={
+          <ProtectedRoute allowedRoles={['ROLE_CITIZEN']}>
+            <PaymentPage />
+          </ProtectedRoute>
+        } 
       />
-
-      {/* Tra cứu tổng hợp */}
       <Route 
         path="/search" 
-        element={<ProtectedRoute><SearchPage /></ProtectedRoute>} 
+        element={
+          <ProtectedRoute allowedRoles={['ROLE_CITIZEN']}>
+            <SearchPage />
+          </ProtectedRoute>
+        } 
       />
-
-      {/* Tài khoản */}
       <Route 
         path="/account" 
-        element={<ProtectedRoute><AccountPage /></ProtectedRoute>} 
+        element={
+          <ProtectedRoute allowedRoles={['ROLE_CITIZEN']}>
+            <AccountPage />
+          </ProtectedRoute>
+        } 
       />
-
-      {/* Kê khai tài sản / Hồ sơ đất đai */}
       <Route 
         path="/property-declaration" 
-        element={<ProtectedRoute><PropertyDeclarationPage /></ProtectedRoute>} 
+        element={
+          <ProtectedRoute allowedRoles={['ROLE_CITIZEN']}>
+            <PropertyDeclarationPage />
+          </ProtectedRoute>
+        } 
       />
-
-      {/* Nộp hồ sơ mới (Wizard 4 bước) */}
       <Route 
         path="/submit-declaration" 
-        element={<ProtectedRoute><SubmitDeclarationPage /></ProtectedRoute>} 
+        element={
+          <ProtectedRoute allowedRoles={['ROLE_CITIZEN']}>
+            <SubmitDeclarationPage />
+          </ProtectedRoute>
+        } 
       />
-
-      {/* Khiếu nại */}
       <Route 
         path="/complaint" 
-        element={<ProtectedRoute><ComplaintPage /></ProtectedRoute>} 
+        element={
+          <ProtectedRoute allowedRoles={['ROLE_CITIZEN']}>
+            <ComplaintPage />
+          </ProtectedRoute>
+        } 
       />
 
-      {/* Fallback Route */}
+      {/* ==================== FALLBACK ROUTE ==================== */}
       <Route
         path="*"
         element={
           localStorage.getItem('token') 
-            ? <Navigate to="/home" replace /> 
+            ? (localStorage.getItem('role') === 'ROLE_ADMIN' 
+                ? <Navigate to="/admin/dashboard" replace /> 
+                : <Navigate to="/home" replace />)
             : <Navigate to="/" replace />
         }
       />

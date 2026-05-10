@@ -1,325 +1,390 @@
-import React, { useState } from 'react';
-
-// --- MOCK DATA ---
-const MOCK_USERS = [
-  { id: 'usr_002', name: 'Trần Thị Hằng', role: 'Cán bộ Liên thông', dept: 'Hành chính Công', permissions: ['Phân hệ Thuế', 'Phân hệ Địa chính'] },
-  { id: 'usr_003', name: 'Lê Minh Tuấn', role: 'Cán bộ Địa chính', dept: 'VP Đăng ký Đất đai', permissions: ['Phân hệ Địa chính'] },
-  { id: 'usr_005', name: 'Phạm Thu Trang', role: 'Cán bộ Thuế', dept: 'Cơ quan Thuế', permissions: ['Phân hệ Thuế'] },
-];
-
-const MOCK_DELEGATIONS = [
-  { id: 'DEL-001', permission: 'Toàn quyền Phân hệ Thuế', assigner: 'Trần Thị Hằng (Thuế)', assignee: 'Phạm Thu Trang (Thuế)', start: '18/04/2026 08:00', end: '20/04/2026 17:00', status: 'Đang hoạt động' },
-  { id: 'DEL-002', permission: 'Toàn quyền Phân hệ Địa chính', assigner: 'Lê Minh Tuấn (Địa chính)', assignee: 'Nguyễn Hải Tú (Địa chính)', start: '10/04/2026 08:00', end: '12/04/2026 17:00', status: 'Đã hết hạn' },
-];
+import React, { useState, useEffect } from 'react';
+import AdminLayout from '../../components/AdminLayout';
 
 const RoleDelegation = () => {
-  const [activeTab, setActiveTab] = useState('roles'); // 'roles' | 'delegation'
+  const user = JSON.parse(localStorage.getItem('user_info') || '{}');
+  const baseUrl = 'http://localhost:8080'; // Thay bằng URL Backend của bạn
+
+  const [activeTab, setActiveTab] = useState('roles'); 
+  const [isLoading, setIsLoading] = useState(false);
   
+  // Dữ liệu State (Map theo cấu trúc DB)
+  const [users, setUsers] = useState([]);
+  const [delegations, setDelegations] = useState([]);
+
   // States cho Modal Phân quyền
   const [isRoleModalOpen, setIsRoleModalOpen] = useState(false);
   const [selectedUser, setSelectedUser] = useState(null);
+  const [selectedRoleCode, setSelectedRoleCode] = useState(''); // Lưu role được chọn trong modal
 
   // States cho Modal Thu hồi ủy quyền
   const [isRevokeModalOpen, setIsRevokeModalOpen] = useState(false);
   const [selectedDelegation, setSelectedDelegation] = useState(null);
 
-  // Handlers
-  const handleOpenRoleModal = (user) => { setSelectedUser(user); setIsRoleModalOpen(true); };
-  const handleOpenRevokeModal = (del) => { setSelectedDelegation(del); setIsRevokeModalOpen(true); };
+  // --- KHI VÀO TRANG, LẤY DỮ LIỆU ---
+  useEffect(() => {
+    fetchData();
+  }, []);
+
+  const fetchData = async () => {
+    setIsLoading(true);
+    try {
+      const token = localStorage.getItem('token');
+      const headers = { 'Authorization': `Bearer ${token}` };
+
+      // GỌI API LẤY DANH SÁCH (Giả định endpoint vì trong list API của bạn chưa ghi rõ endpoint GET)
+      const [usersRes, delRes] = await Promise.all([
+        fetch(`${baseUrl}/api/admin/users`, { headers }).catch(() => null), // Fallback nếu chưa code API
+        fetch(`${baseUrl}/api/admin/delegations`, { headers }).catch(() => null)
+      ]);
+
+      if (usersRes && usersRes.ok) {
+        const uData = await usersRes.json();
+        setUsers(uData.data || uData);
+      } else {
+        // MOCK DATA map theo bảng `accounts`, `citizens` và `roles`
+        setUsers([
+          { cccd_number: '001090000002', full_name: 'Trần Thị Bình', role_code: 'TAX_OFFICER', role_name: 'Cán bộ thuế', account_status: 'ACTIVE' },
+          { cccd_number: '001090000003', full_name: 'Lê Hoàng Cường', role_code: 'LAND_OFFICER', role_name: 'Cán bộ địa chính', account_status: 'ACTIVE' },
+          { cccd_number: '001190000101', full_name: 'Nguyễn Văn Anh', role_code: 'ADMIN', role_name: 'Quản trị hệ thống', account_status: 'ACTIVE' },
+        ]);
+      }
+
+      if (delRes && delRes.ok) {
+        const dData = await delRes.json();
+        setDelegations(dData.data || dData);
+      } else {
+        // MOCK DATA map theo bảng `role_delegations`
+        setDelegations([
+          { delegation_id: 2, delegated_role_name: 'Cán bộ thuế (TAX_OFFICER)', delegator_name: 'Admin Hệ thống', delegatee_name: 'Trần Thị Bình', start_time: '2026-06-01 00:00:00', end_time: '2026-06-05 23:59:59', status: 'ACTIVE' },
+          { delegation_id: 4, delegated_role_name: 'Cán bộ địa chính (LAND_OFFICER)', delegator_name: 'Quản lý phòng ban', delegatee_name: 'Lê Hoàng Cường', start_time: '2026-08-01 00:00:00', end_time: '2026-08-10 23:59:59', status: 'EXPIRED' },
+        ]);
+      }
+    } catch (error) {
+      console.error("Lỗi khi lấy dữ liệu", error);
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  // --- API: CẬP NHẬT PHÂN QUYỀN ---
+  // Gọi API: PUT /api/admin/users/{cccd}/role
+  const handleSaveRole = async () => {
+    if (!selectedUser || !selectedRoleCode) return;
+    
+    try {
+      const token = localStorage.getItem('token');
+      const res = await fetch(`${baseUrl}/api/admin/users/${selectedUser.cccd_number}/role`, {
+        method: 'PUT',
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({ roleCode: selectedRoleCode })
+      });
+
+      if (res.ok) {
+        alert('Cập nhật quyền hạn thành công!');
+        fetchData(); // Tải lại danh sách
+      } else {
+        alert('Có lỗi xảy ra khi cập nhật quyền');
+      }
+    } catch (err) {
+      alert('Lỗi kết nối mạng!');
+    } finally {
+      setIsRoleModalOpen(false);
+    }
+  };
+
+  // --- API: THU HỒI ỦY QUYỀN ---
+  // Giả định dùng POST hoặc PUT thay đổi trạng thái delegation
+  const handleConfirmRevoke = async () => {
+    if (!selectedDelegation) return;
+
+    try {
+      const token = localStorage.getItem('token');
+      // Tùy theo BE của bạn thiết kế, ví dụ dùng PUT đổi status sang INACTIVE
+      const res = await fetch(`${baseUrl}/api/admin/delegations/${selectedDelegation.delegation_id}/revoke`, {
+        method: 'PUT',
+        headers: { 'Authorization': `Bearer ${token}` }
+      });
+
+      if (res.ok) {
+        alert('Thu hồi quyền thành công!');
+        fetchData(); 
+      } else {
+        // Fallback fake UI update nếu API chưa có sẵn
+        setDelegations(delegations.map(d => d.delegation_id === selectedDelegation.delegation_id ? { ...d, status: 'INACTIVE' } : d));
+        alert('Thu hồi quyền thành công (Mô phỏng)!');
+      }
+    } catch (err) {
+      alert('Lỗi kết nối mạng!');
+    } finally {
+      setIsRevokeModalOpen(false);
+    }
+  };
+
+  // Handlers mở Modal
+  const handleOpenRoleModal = (usr) => { 
+    setSelectedUser(usr); 
+    setSelectedRoleCode(usr.role_code); // Set mặc định role hiện tại
+    setIsRoleModalOpen(true); 
+  };
+  
+  const handleOpenRevokeModal = (del) => { 
+    setSelectedDelegation(del); 
+    setIsRevokeModalOpen(true); 
+  };
 
   return (
-    <div style={{ backgroundColor: '#f8fafc', minHeight: '100vh', padding: '30px 40px', fontFamily: 'Inter, sans-serif' }}>
-      
-      {/* Header */}
-      <div style={{ marginBottom: 24 }}>
-        <h2 style={{ margin: 0, fontWeight: 800, color: '#1e293b' }}>Phân & Ủy quyền</h2>
-        <p style={{ color: '#64748b', marginTop: 4, fontSize: 14 }}>Quản lý vai trò truy cập và thiết lập ủy quyền tạm thời</p>
-      </div>
-
-      {/* Main Container */}
-      <div style={mainCardStyle}>
+    <AdminLayout user={user}>
+      <div className="container py-4" style={{ maxWidth: '1140px' }}>
         
-        {/* Custom Tabs */}
-        <div style={tabsHeaderStyle}>
-          <button 
-            style={activeTab === 'roles' ? activeTabBtnStyle : inactiveTabBtnStyle}
-            onClick={() => setActiveTab('roles')}
-          >
-            <i className="bi bi-key" style={{ marginRight: 8 }}></i> Phân quyền
-          </button>
-          <button 
-            style={activeTab === 'delegation' ? activeTabBtnStyle : inactiveTabBtnStyle}
-            onClick={() => setActiveTab('delegation')}
-          >
-            <i className="bi bi-link-45deg" style={{ marginRight: 8 }}></i> Ủy quyền
-          </button>
+        <div className="mb-4">
+          <h3 className="fw-bold">Phân & Ủy quyền</h3>
+          <p className="text-muted">Quản lý vai trò truy cập và thiết lập ủy quyền tạm thời</p>
         </div>
 
-        {/* --- TAB CONTENT: PHÂN QUYỀN --- */}
-        {activeTab === 'roles' && (
-          <div style={{ padding: '0 24px 24px' }}>
-            <table style={tableStyle}>
-              <thead>
-                <tr style={thRowStyle}>
-                  <th style={thCellStyle}>HỌ TÊN / MÃ TK</th>
-                  <th style={thCellStyle}>CHỨC VỤ & ĐƠN VỊ</th>
-                  <th style={thCellStyle}>QUYỀN HẠN HỆ THỐNG</th>
-                  <th style={{ ...thCellStyle, textAlign: 'right' }}>THAO TÁC</th>
-                </tr>
-              </thead>
-              <tbody>
-                {MOCK_USERS.map((user) => (
-                  <tr key={user.id} style={tdRowStyle}>
-                    <td style={tdCellStyle}>
-                      <div style={{ fontWeight: 700, color: '#1e293b' }}>{user.name}</div>
-                      <div style={{ color: '#94a3b8', fontSize: 12, fontFamily: 'monospace' }}>{user.id}</div>
-                    </td>
-                    <td style={tdCellStyle}>
-                      <div style={{ color: '#334155', display: 'flex', alignItems: 'center', gap: 6 }}>
-                        <i className="bi bi-person" style={{ color: '#94a3b8' }}></i> {user.role}
-                      </div>
-                      <div style={{ color: '#64748b', fontSize: 13, marginTop: 2 }}>{user.dept}</div>
-                    </td>
-                    <td style={tdCellStyle}>
-                      <div style={{ display: 'flex', gap: 8 }}>
-                        {user.permissions.map(perm => (
-                          <span key={perm} style={getPermissionBadgeStyle(perm)}>{perm}</span>
+        <div className="card shadow-sm border-0 mb-5" style={{ borderRadius: '16px', overflow: 'hidden' }}>
+          
+          {/* Tabs */}
+          <div className="d-flex border-bottom px-3 bg-white" style={{ overflowX: 'auto' }}>
+            <button 
+              className={`btn flex-shrink-0 fw-bold rounded-0 px-4 py-3 ${activeTab === 'roles' ? 'text-danger border-danger' : 'text-muted border-transparent'}`}
+              style={{ border: 'none', borderBottom: `2px solid ${activeTab === 'roles' ? '#b91c1c' : 'transparent'}`, fontSize: '15px' }}
+              onClick={() => setActiveTab('roles')}
+            >
+              <i className="bi bi-key me-2"></i> Phân quyền
+            </button>
+            <button 
+              className={`btn flex-shrink-0 fw-bold rounded-0 px-4 py-3 ${activeTab === 'delegation' ? 'text-danger border-danger' : 'text-muted border-transparent'}`}
+              style={{ border: 'none', borderBottom: `2px solid ${activeTab === 'delegation' ? '#b91c1c' : 'transparent'}`, fontSize: '15px' }}
+              onClick={() => setActiveTab('delegation')}
+            >
+              <i className="bi bi-link-45deg me-2"></i> Ủy quyền
+            </button>
+          </div>
+
+          {isLoading ? (
+            <div className="text-center py-5"><div className="spinner-border text-danger"></div></div>
+          ) : (
+            <>
+              {/* --- TAB CONTENT: PHÂN QUYỀN --- */}
+              {activeTab === 'roles' && (
+                <div className="p-0">
+                  <div className="table-responsive">
+                    <table className="table table-borderless table-hover align-middle mb-0" style={{ minWidth: '800px' }}>
+                      <thead className="bg-light border-bottom">
+                        <tr>
+                          <th className="py-3 px-4 text-muted small fw-bold">HỌ TÊN / CCCD</th>
+                          <th className="py-3 px-4 text-muted small fw-bold">CHỨC VỤ</th>
+                          <th className="py-3 px-4 text-muted small fw-bold">TRẠNG THÁI</th>
+                          <th className="py-3 px-4 text-muted small fw-bold text-end">THAO TÁC</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {users.map((usr, idx) => (
+                          <tr key={usr.cccd_number} className={idx !== users.length - 1 ? "border-bottom" : ""}>
+                            <td className="py-3 px-4">
+                              <div className="fw-bold text-dark">{usr.full_name}</div>
+                              <div className="text-muted small font-monospace mt-1">{usr.cccd_number}</div>
+                            </td>
+                            <td className="py-3 px-4">
+                              <span 
+                                className={`badge rounded-pill px-3 py-2 fw-semibold ${usr.role_code === 'TAX_OFFICER' ? 'bg-primary bg-opacity-10 text-primary' : (usr.role_code === 'LAND_OFFICER' ? 'bg-success bg-opacity-10 text-success' : 'bg-danger bg-opacity-10 text-danger')}`}
+                              >
+                                {usr.role_name}
+                              </span>
+                            </td>
+                            <td className="py-3 px-4">
+                               <div className="d-flex align-items-center gap-2 small fw-semibold text-success">
+                                <div className="rounded-circle bg-success" style={{ width: '8px', height: '8px' }}></div>
+                                {usr.account_status}
+                              </div>
+                            </td>
+                            <td className="py-3 px-4 text-end">
+                              {/* NÚT THIẾT LẬP QUYỀN ĐÃ ĐƯỢC STYLE GIỐNG NÚT PHÂN HỆ THUẾ */}
+                              <button 
+                                className="btn bg-primary bg-opacity-10 text-primary rounded-pill fw-semibold px-4 py-2 border-0" 
+                                style={{ fontSize: '13px' }}
+                                onClick={() => handleOpenRoleModal(usr)}
+                              >
+                                Thiết lập quyền
+                              </button>
+                            </td>
+                          </tr>
                         ))}
-                      </div>
-                    </td>
-                    <td style={{ ...tdCellStyle, textAlign: 'right' }}>
-                      <button style={btnBlueLightStyle} onClick={() => handleOpenRoleModal(user)}>
-                        Thiết lập quyền
-                      </button>
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-        )}
-
-        {/* --- TAB CONTENT: ỦY QUYỀN --- */}
-        {activeTab === 'delegation' && (
-          <div style={{ padding: '20px 24px 24px' }}>
-            {/* Stats Sub-header */}
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 20 }}>
-              <div style={{ display: 'flex', alignItems: 'center', gap: 16, fontSize: 14 }}>
-                <div><span style={{ fontWeight: 800, color: '#1e293b' }}>12</span> <span style={{ color: '#64748b' }}>Đang hoạt động</span></div>
-                <div style={{ width: 1, height: 16, backgroundColor: '#e2e8f0' }}></div>
-                <div><span style={{ fontWeight: 800, color: '#1e293b' }}>3</span> <span style={{ color: '#64748b' }}>Sắp hết hạn</span></div>
-                <div style={{ width: 1, height: 16, backgroundColor: '#e2e8f0' }}></div>
-                <div><span style={{ fontWeight: 800, color: '#1e293b' }}>18</span> <span style={{ color: '#64748b' }}>Cán bộ được ủy quyền</span></div>
-              </div>
-              <select style={selectStyle}>
-                <option>Tất cả trạng thái</option>
-                <option>Đang hoạt động</option>
-                <option>Đã hết hạn</option>
-              </select>
-            </div>
-
-            <table style={tableStyle}>
-              <thead>
-                <tr style={thRowStyle}>
-                  <th style={thCellStyle}>MÃ / QUYỀN HẠN</th>
-                  <th style={thCellStyle}>NGƯỜI GIAO</th>
-                  <th style={thCellStyle}>NGƯỜI NHẬN</th>
-                  <th style={thCellStyle}>THỜI GIAN BẮT ĐẦU</th>
-                  <th style={thCellStyle}>THỜI GIAN KẾT THÚC</th>
-                  <th style={thCellStyle}>TRẠNG THÁI</th>
-                  <th style={{ ...thCellStyle, textAlign: 'right' }}>THAO TÁC</th>
-                </tr>
-              </thead>
-              <tbody>
-                {MOCK_DELEGATIONS.map((del) => (
-                  <tr key={del.id} style={tdRowStyle}>
-                    <td style={tdCellStyle}>
-                      <div style={{ fontWeight: 700, color: '#1e293b', fontSize: 12 }}>{del.id}</div>
-                      <div style={{ color: '#dc2626', fontSize: 13, marginTop: 2 }}>{del.permission}</div>
-                    </td>
-                    <td style={{ ...tdCellStyle, color: '#475569' }}>{del.assigner}</td>
-                    <td style={{ ...tdCellStyle, color: '#475569' }}>{del.assignee}</td>
-                    <td style={{ ...tdCellStyle, color: '#64748b' }}>{del.start}</td>
-                    <td style={{ ...tdCellStyle, color: '#64748b' }}>{del.end}</td>
-                    <td style={tdCellStyle}>
-                      <span style={getDelegationStatusBadge(del.status)}>{del.status}</span>
-                    </td>
-                    <td style={{ ...tdCellStyle, textAlign: 'right' }}>
-                      {del.status === 'Đang hoạt động' && (
-                        <button style={btnRedOutlineStyle} onClick={() => handleOpenRevokeModal(del)}>
-                          Thu hồi
-                        </button>
-                      )}
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-        )}
-      </div>
-
-      {/* --- MODAL: CẬP NHẬT QUYỀN HẠN --- */}
-      {isRoleModalOpen && selectedUser && (
-        <div style={modalOverlayStyle}>
-          <div style={modalContentStyle}>
-            {/* Modal Header Red */}
-            <div style={modalHeaderRedStyle}>
-              <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-                <i className="bi bi-key" style={{ fontSize: 20 }}></i>
-                <h3 style={{ margin: 0, fontSize: 18, fontWeight: 700 }}>Cập nhật Quyền hạn Tài khoản</h3>
-              </div>
-              <button onClick={() => setIsRoleModalOpen(false)} style={{ background: 'none', border: 'none', color: '#fff', fontSize: 24, cursor: 'pointer' }}><i className="bi bi-x"></i></button>
-            </div>
-
-            <div style={{ padding: 24 }}>
-              {/* User Info Box */}
-              <div style={userInfoBoxStyle}>
-                <div style={avatarStyle}><i className="bi bi-person" style={{ fontSize: 24 }}></i></div>
-                <div>
-                  <div style={{ fontWeight: 800, color: '#1e293b', fontSize: 16 }}>{selectedUser.name}</div>
-                  <div style={{ color: '#64748b', fontSize: 13, marginTop: 4 }}>{selectedUser.role} • {selectedUser.dept}</div>
+                      </tbody>
+                    </table>
+                  </div>
                 </div>
-              </div>
+              )}
 
-              <div style={{ fontWeight: 700, color: '#334155', marginBottom: 12, fontSize: 14 }}>Phân quyền vai trò hệ thống</div>
-
-              {/* Checkbox Options */}
-              <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
-                <label style={{ ...roleOptionStyle, borderColor: '#fca5a5', backgroundColor: '#fef2f2' }}>
-                  <input type="checkbox" style={checkboxStyle} />
-                  <div>
-                    <div style={{ fontWeight: 700, color: '#b91c1c' }}>Quản trị viên (Admin)</div>
-                    <div style={{ color: '#dc2626', fontSize: 12, marginTop: 4 }}>Cấp quyền truy cập hệ thống ở mức cao nhất, có thể phân quyền & điều phối người dùng.</div>
+              {/* --- TAB CONTENT: ỦY QUYỀN --- */}
+              {activeTab === 'delegation' && (
+                <div className="p-4">
+                  <div className="table-responsive border rounded-3">
+                    <table className="table table-borderless table-hover align-middle mb-0" style={{ minWidth: '950px' }}>
+                      <thead className="bg-light border-bottom">
+                        <tr>
+                          <th className="py-3 px-3 text-muted small fw-bold">MÃ UQ / QUYỀN HẠN</th>
+                          <th className="py-3 px-3 text-muted small fw-bold">NGƯỜI GIAO</th>
+                          <th className="py-3 px-3 text-muted small fw-bold">NGƯỜI NHẬN</th>
+                          <th className="py-3 px-3 text-muted small fw-bold">THỜI GIAN BẮT ĐẦU</th>
+                          <th className="py-3 px-3 text-muted small fw-bold">THỜI GIAN KẾT THÚC</th>
+                          <th className="py-3 px-3 text-muted small fw-bold">TRẠNG THÁI</th>
+                          <th className="py-3 px-3 text-muted small fw-bold text-end">THAO TÁC</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {delegations.map((del, idx) => (
+                          <tr key={del.delegation_id} className={idx !== delegations.length - 1 ? "border-bottom" : ""}>
+                            <td className="py-3 px-3">
+                              <div className="fw-bold text-dark small font-monospace">DEL-{del.delegation_id}</div>
+                              <div className="text-danger small mt-1 fw-semibold">{del.delegated_role_name}</div>
+                            </td>
+                            <td className="py-3 px-3 text-secondary small fw-bold">{del.delegator_name}</td>
+                            <td className="py-3 px-3 text-secondary small fw-bold">{del.delegatee_name}</td>
+                            <td className="py-3 px-3 text-muted small font-monospace">{del.start_time}</td>
+                            <td className="py-3 px-3 text-muted small font-monospace">{del.end_time}</td>
+                            <td className="py-3 px-3">
+                              <span className={`badge rounded-pill px-3 py-2 ${del.status === 'ACTIVE' ? 'bg-success bg-opacity-10 text-success' : 'bg-secondary bg-opacity-10 text-secondary'}`}>
+                                {del.status === 'ACTIVE' ? 'Đang hoạt động' : 'Hết hiệu lực'}
+                              </span>
+                            </td>
+                            <td className="py-3 px-3 text-end">
+                              {del.status === 'ACTIVE' && (
+                                <button 
+                                  className="btn btn-outline-danger btn-sm fw-semibold px-3 py-1 rounded-pill" 
+                                  onClick={() => handleOpenRevokeModal(del)}
+                                >
+                                  Thu hồi
+                                </button>
+                              )}
+                            </td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
                   </div>
-                </label>
+                </div>
+              )}
+            </>
+          )}
+        </div>
 
-                <label style={roleOptionStyle}>
-                  <input type="checkbox" defaultChecked style={checkboxStyle} />
-                  <div>
-                    <div style={{ fontWeight: 700, color: '#1e293b' }}>Cán bộ Thuế</div>
-                    <div style={{ color: '#64748b', fontSize: 12, marginTop: 4 }}>Toàn quyền truy cập và xử lý các chức năng thuộc phân hệ Thuế đất đai.</div>
-                  </div>
-                </label>
-
-                <label style={roleOptionStyle}>
-                  <input type="checkbox" defaultChecked={selectedUser.permissions.includes('Phân hệ Địa chính')} style={checkboxStyle} />
-                  <div>
-                    <div style={{ fontWeight: 700, color: '#1e293b' }}>Cán bộ Địa chính</div>
-                    <div style={{ color: '#64748b', fontSize: 12, marginTop: 4 }}>Toàn quyền truy cập và xử lý các chức năng thuộc phân hệ Đất đai (Sổ địa chính, Giá đất...).</div>
-                  </div>
-                </label>
-              </div>
-
-              {/* Modal Footer */}
-              <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 12, marginTop: 24 }}>
-                <button style={btnCancelStyle} onClick={() => setIsRoleModalOpen(false)}>Hủy bỏ</button>
-                <button style={btnConfirmRedStyle} onClick={() => setIsRoleModalOpen(false)}>
-                  <i className="bi bi-check2"></i> Lưu thông tin
+        {/* --- MODAL: CẬP NHẬT QUYỀN HẠN (Sử dụng API PUT) --- */}
+        {isRoleModalOpen && selectedUser && (
+          <div className="modal-overlay d-flex align-items-center justify-content-center" style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, backgroundColor: 'rgba(15, 23, 42, 0.6)', zIndex: 1050 }}>
+            <div className="card border-0 shadow-lg" style={{ width: '100%', maxWidth: '550px', borderRadius: '16px', overflow: 'hidden' }}>
+              <div className="bg-danger text-white px-4 py-3 d-flex justify-content-between align-items-center">
+                <div className="d-flex align-items-center gap-2">
+                  <i className="bi bi-key fs-5"></i>
+                  <h5 className="mb-0 fw-bold">Cập nhật Quyền hạn Tài khoản</h5>
+                </div>
+                <button className="btn text-white fs-4 p-0" onClick={() => setIsRoleModalOpen(false)}>
+                  <i className="bi bi-x"></i>
                 </button>
               </div>
+
+              <div className="p-4">
+                <div className="d-flex align-items-center gap-3 p-3 border rounded-3 mb-4 bg-light">
+                  <div className="rounded-circle bg-white border d-flex align-items-center justify-content-center text-muted" style={{ width: '48px', height: '48px', fontSize: '24px' }}>
+                    <i className="bi bi-person"></i>
+                  </div>
+                  <div>
+                    <div className="fw-bold text-dark" style={{ fontSize: '16px' }}>{selectedUser.full_name}</div>
+                    <div className="text-muted small mt-1 font-monospace">CCCD: {selectedUser.cccd_number}</div>
+                  </div>
+                </div>
+
+                <div className="fw-bold text-secondary mb-3 small">Cấp phát quyền hệ thống (Role Code)</div>
+
+                <div className="d-flex flex-column gap-3">
+                  <label className={`d-flex align-items-start gap-3 p-3 border rounded-3 cursor-pointer shadow-sm ${selectedRoleCode === 'ADMIN' ? 'border-danger bg-danger bg-opacity-10' : 'bg-white'}`}>
+                    <input 
+                      type="radio" name="roleSelect" className="form-check-input mt-1" style={{ width: '18px', height: '18px', cursor: 'pointer' }}
+                      checked={selectedRoleCode === 'ADMIN'}
+                      onChange={() => setSelectedRoleCode('ADMIN')}
+                    />
+                    <div>
+                      <div className={`fw-bold ${selectedRoleCode === 'ADMIN' ? 'text-danger' : 'text-dark'}`}>Quản trị viên (ADMIN)</div>
+                      <div className="text-muted small mt-1">Cấp quyền truy cập hệ thống ở mức cao nhất.</div>
+                    </div>
+                  </label>
+
+                  <label className={`d-flex align-items-start gap-3 p-3 border rounded-3 cursor-pointer shadow-sm ${selectedRoleCode === 'TAX_OFFICER' ? 'border-primary bg-primary bg-opacity-10' : 'bg-white'}`}>
+                    <input 
+                      type="radio" name="roleSelect" className="form-check-input mt-1" style={{ width: '18px', height: '18px', cursor: 'pointer' }}
+                      checked={selectedRoleCode === 'TAX_OFFICER'}
+                      onChange={() => setSelectedRoleCode('TAX_OFFICER')}
+                    />
+                    <div>
+                      <div className={`fw-bold ${selectedRoleCode === 'TAX_OFFICER' ? 'text-primary' : 'text-dark'}`}>Cán bộ Thuế (TAX_OFFICER)</div>
+                      <div className="text-muted small mt-1">Truy cập và xử lý các chức năng thuộc phân hệ Thuế đất đai.</div>
+                    </div>
+                  </label>
+
+                  <label className={`d-flex align-items-start gap-3 p-3 border rounded-3 cursor-pointer shadow-sm ${selectedRoleCode === 'LAND_OFFICER' ? 'border-success bg-success bg-opacity-10' : 'bg-white'}`}>
+                    <input 
+                      type="radio" name="roleSelect" className="form-check-input mt-1" style={{ width: '18px', height: '18px', cursor: 'pointer' }}
+                      checked={selectedRoleCode === 'LAND_OFFICER'}
+                      onChange={() => setSelectedRoleCode('LAND_OFFICER')}
+                    />
+                    <div>
+                      <div className={`fw-bold ${selectedRoleCode === 'LAND_OFFICER' ? 'text-success' : 'text-dark'}`}>Cán bộ Địa chính (LAND_OFFICER)</div>
+                      <div className="text-muted small mt-1">Truy cập và xử lý Sổ địa chính, Giá đất khu vực.</div>
+                    </div>
+                  </label>
+                </div>
+
+                <div className="d-flex justify-content-end gap-2 mt-4 pt-3 border-top">
+                  <button className="btn btn-light border fw-semibold px-4" style={{ borderRadius: '8px' }} onClick={() => setIsRoleModalOpen(false)}>Hủy bỏ</button>
+                  <button className="btn btn-danger fw-semibold px-4 d-flex align-items-center gap-2" style={{ borderRadius: '8px' }} onClick={handleSaveRole}>
+                    <i className="bi bi-check2"></i> Lưu phân quyền
+                  </button>
+                </div>
+              </div>
             </div>
           </div>
-        </div>
-      )}
+        )}
 
-      {/* --- MODAL: XÁC NHẬN THU HỒI --- */}
-      {isRevokeModalOpen && selectedDelegation && (
-        <div style={modalOverlayStyle}>
-          <div style={{ ...modalContentStyle, maxWidth: 450, padding: 32, textAlign: 'center' }}>
-            
-            <div style={warningIconBgStyle}>
-              <i className="bi bi-exclamation-triangle" style={{ color: '#dc2626', fontSize: 24 }}></i>
-            </div>
-            
-            <h3 style={{ margin: '20px 0 12px', fontSize: 20, fontWeight: 800, color: '#1e293b' }}>Xác nhận Thu hồi Quyền</h3>
-            
-            <p style={{ color: '#64748b', fontSize: 14, lineHeight: 1.5, marginBottom: 24 }}>
-              Bạn có chắc chắn muốn thu hồi quyền <span style={{ fontWeight: 700, color: '#475569' }}>{selectedDelegation.permission}</span> từ <span style={{ fontWeight: 700, color: '#475569' }}>{selectedDelegation.assignee}</span> không? Cán bộ này sẽ mất quyền ngay lập tức.
-            </p>
+        {/* --- MODAL: XÁC NHẬN THU HỒI --- */}
+        {isRevokeModalOpen && selectedDelegation && (
+          <div className="modal-overlay d-flex align-items-center justify-content-center" style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, backgroundColor: 'rgba(15, 23, 42, 0.6)', zIndex: 1050 }}>
+            <div className="card border-0 shadow-lg" style={{ width: '100%', maxWidth: '450px', borderRadius: '16px', overflow: 'hidden' }}>
+              <div className="p-4 p-md-5 text-center">
+                <div className="rounded-circle bg-danger bg-opacity-10 text-danger d-flex align-items-center justify-content-center mx-auto mb-4" style={{ width: '64px', height: '64px', fontSize: '28px' }}>
+                  <i className="bi bi-exclamation-triangle"></i>
+                </div>
+                <h4 className="fw-bold text-dark mb-3">Xác nhận Thu hồi Quyền</h4>
+                <p className="text-muted small mb-4" style={{ lineHeight: '1.6' }}>
+                  Bạn có chắc chắn muốn thu hồi quyền <span className="fw-bold text-secondary">{selectedDelegation.delegated_role_name}</span> từ <span className="fw-bold text-secondary">{selectedDelegation.delegatee_name}</span> không? Cán bộ này sẽ mất quyền truy cập tức thì.
+                </p>
 
-            <div style={delegationDetailsBoxStyle}>
-              <div style={detailRowStyle}>
-                <span style={{ color: '#64748b' }}>Mã Ủy quyền:</span>
-                <span style={{ fontFamily: 'monospace', fontWeight: 600 }}>{selectedDelegation.id}</span>
-              </div>
-              <div style={detailRowStyle}>
-                <span style={{ color: '#64748b' }}>Người giao:</span>
-                <span style={{ color: '#334155' }}>{selectedDelegation.assigner}</span>
-              </div>
-              <div style={detailRowStyle}>
-                <span style={{ color: '#64748b' }}>Thời hạn:</span>
-                <span style={{ fontFamily: 'monospace', fontSize: 12 }}>{selectedDelegation.start.split(' ')[0]} - {selectedDelegation.end.split(' ')[0]}</span>
-              </div>
-            </div>
+                <div className="bg-light border rounded-3 p-3 text-start mb-4">
+                  <div className="d-flex justify-content-between small mb-2">
+                    <span className="text-muted">Mã Ủy quyền:</span>
+                    <span className="fw-bold font-monospace text-dark">DEL-{selectedDelegation.delegation_id}</span>
+                  </div>
+                  <div className="d-flex justify-content-between small">
+                    <span className="text-muted">Người giao:</span>
+                    <span className="fw-semibold text-secondary">{selectedDelegation.delegator_name}</span>
+                  </div>
+                </div>
 
-            <div style={{ display: 'flex', gap: 12, marginTop: 24 }}>
-              <button style={{ ...btnCancelStyle, flex: 1 }} onClick={() => setIsRevokeModalOpen(false)}>Hủy bỏ</button>
-              <button style={{ ...btnConfirmRedStyle, flex: 1, justifyContent: 'center' }} onClick={() => setIsRevokeModalOpen(false)}>Đồng ý Thu hồi</button>
+                <div className="d-flex gap-2">
+                  <button className="btn btn-light border fw-semibold flex-grow-1 py-2" style={{ borderRadius: '8px' }} onClick={() => setIsRevokeModalOpen(false)}>Hủy bỏ</button>
+                  <button className="btn btn-danger fw-semibold flex-grow-1 py-2" style={{ borderRadius: '8px' }} onClick={handleConfirmRevoke}>Đồng ý Thu hồi</button>
+                </div>
+              </div>
             </div>
           </div>
-        </div>
-      )}
+        )}
 
-    </div>
+      </div>
+    </AdminLayout>
   );
 };
-
-// --- STYLES & HELPERS ---
-
-const mainCardStyle = { background: '#fff', borderRadius: 12, border: '1px solid #e2e8f0', overflow: 'hidden' };
-
-// Tabs
-const tabsHeaderStyle = { display: 'flex', borderBottom: '1px solid #e2e8f0', padding: '0 24px' };
-const inactiveTabBtnStyle = { background: 'none', border: 'none', borderBottom: '2px solid transparent', padding: '20px 0', marginRight: 32, fontSize: 15, fontWeight: 700, color: '#64748b', cursor: 'pointer' };
-const activeTabBtnStyle = { ...inactiveTabBtnStyle, color: '#b91c1c', borderBottom: '2px solid #b91c1c' };
-
-// Table
-const tableStyle = { width: '100%', borderCollapse: 'collapse' };
-const thRowStyle = { borderBottom: '1px solid #e2e8f0' };
-const thCellStyle = { padding: '16px 0', textAlign: 'left', fontSize: 11, fontWeight: 700, color: '#64748b', letterSpacing: 0.5 };
-const tdRowStyle = { borderBottom: '1px solid #f1f5f9' };
-const tdCellStyle = { padding: '20px 0', fontSize: 14 };
-
-// Buttons & Inputs
-const selectStyle = { padding: '8px 16px', borderRadius: 8, border: '1px solid #e2e8f0', color: '#1e293b', fontSize: 14, outline: 'none', backgroundColor: '#fff', cursor: 'pointer' };
-const btnBlueLightStyle = { background: '#eff6ff', color: '#2563eb', border: 'none', padding: '8px 16px', borderRadius: 6, fontWeight: 600, fontSize: 13, cursor: 'pointer' };
-const btnRedOutlineStyle = { background: '#fff', color: '#dc2626', border: '1px solid #dc2626', padding: '6px 16px', borderRadius: 6, fontWeight: 600, fontSize: 13, cursor: 'pointer' };
-
-// Badges
-const getPermissionBadgeStyle = (perm) => {
-  const isTax = perm.includes('Thuế');
-  return {
-    display: 'inline-flex', alignItems: 'center', gap: 6, padding: '4px 10px', borderRadius: 50, fontSize: 12, fontWeight: 600,
-    backgroundColor: isTax ? '#eff6ff' : '#f0fdf4', color: isTax ? '#2563eb' : '#16a34a'
-  };
-};
-
-const getDelegationStatusBadge = (status) => {
-  const isActive = status === 'Đang hoạt động';
-  return {
-    padding: '4px 12px', borderRadius: 50, fontSize: 12, fontWeight: 600,
-    backgroundColor: isActive ? '#dcfce7' : '#f1f5f9', color: isActive ? '#16a34a' : '#64748b'
-  };
-};
-
-// Modal Common
-const modalOverlayStyle = { position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, backgroundColor: 'rgba(15, 23, 42, 0.5)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 1000 };
-const modalContentStyle = { backgroundColor: '#fff', width: '100%', maxWidth: 550, borderRadius: 16, overflow: 'hidden', boxShadow: '0 20px 25px -5px rgba(0, 0, 0, 0.1)' };
-
-// Role Modal specific
-const modalHeaderRedStyle = { backgroundColor: '#b91c1c', padding: '20px 24px', display: 'flex', justifyContent: 'space-between', alignItems: 'center', color: '#fff' };
-const userInfoBoxStyle = { border: '1px solid #e2e8f0', borderRadius: 12, padding: 16, display: 'flex', alignItems: 'center', gap: 16, marginBottom: 24, backgroundColor: '#f8fafc' };
-const avatarStyle = { width: 48, height: 48, borderRadius: '50%', backgroundColor: '#fff', border: '1px solid #e2e8f0', color: '#94a3b8', display: 'flex', alignItems: 'center', justifyContent: 'center' };
-const roleOptionStyle = { display: 'flex', alignItems: 'flex-start', gap: 12, padding: 16, border: '1px solid #e2e8f0', borderRadius: 12, cursor: 'pointer', backgroundColor: '#fff' };
-const checkboxStyle = { width: 18, height: 18, marginTop: 2, accentColor: '#2563eb', cursor: 'pointer' };
-
-// Revoke Modal specific
-const warningIconBgStyle = { width: 64, height: 64, borderRadius: '50%', backgroundColor: '#fee2e2', display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto' };
-const delegationDetailsBoxStyle = { border: '1px solid #e2e8f0', borderRadius: 12, padding: 20, backgroundColor: '#f8fafc', display: 'flex', flexDirection: 'column', gap: 12, textAlign: 'left' };
-const detailRowStyle = { display: 'flex', justifyContent: 'space-between', fontSize: 13 };
-
-const btnCancelStyle = { padding: '10px 24px', borderRadius: 8, border: '1px solid #cbd5e1', backgroundColor: '#fff', color: '#334155', fontSize: 14, fontWeight: 700, cursor: 'pointer' };
-const btnConfirmRedStyle = { padding: '10px 24px', borderRadius: 8, border: 'none', backgroundColor: '#dc2626', color: '#fff', fontSize: 14, fontWeight: 700, cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 8 };
 
 export default RoleDelegation;
