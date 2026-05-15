@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import LandTaxLayout from '../../components/LandTaxLayout';
+import { userApi } from '../../../infrastructure/api/userApi';
 
 const AccountPage = () => {
   const navigate = useNavigate();

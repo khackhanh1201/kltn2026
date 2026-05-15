@@ -8,7 +8,7 @@ const ReportManagement = () => {
   // ================= VIEW: TỔNG QUÁT HỆ THỐNG =================
   if (view === 'overview') {
     return (
-      <LandTaxLayout user={user}>
+      <TaxOfficerLayout user={user}>
         <div style={containerStyle}>
           {/* Header */}
           <div style={headerStyle}>
@@ -116,14 +116,14 @@ const ReportManagement = () => {
           </div>
 
         </div>
-      </LandTaxLayout>
+      </TaxOfficerLayout>
     );
   }
 
   // ================= VIEW: TẠO BÁO CÁO (FORM) =================
   if (view === 'create') {
     return (
-      <LandTaxLayout user={user}>
+      <TaxOfficerLayout user={user}>
         <div style={containerStyle}>
           <div style={{ display: 'flex', alignItems: 'center', gap: 15, marginBottom: 25 }}>
              <button onClick={() => setView('overview')} style={btnBack}><i className="bi bi-arrow-left"></i></button>
@@ -176,7 +176,7 @@ const ReportManagement = () => {
             </button>
           </div>
         </div>
-      </LandTaxLayout>
+      </TaxOfficerLayout>
     );
   }
 };

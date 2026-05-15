@@ -8,6 +8,7 @@ const getAuthHeaders = () => ({
   'Content-Type': 'application/json',
   Authorization: `Bearer ${localStorage.getItem('token')}`,
 });
+import { userApi } from '../../../infrastructure/api/userApi';
 
 const LAND_TYPE_LABELS = {
   ODT: 'Đất ở tại đô thị',
@@ -65,13 +66,8 @@ const LandInformationPage = () => {
   const [selected, setSelected] = useState(null);
 
   useEffect(() => {
-    if (cccdNumber) {
-      fetchParcels();
-    } else {
-      setError('Không xác định được CCCD. Vui lòng đăng xuất và đăng nhập lại.');
-      setLoading(false);
-    }
-  }, [cccdNumber]);
+    fetchParcels();
+  }, []);
 
   const fetchParcels = async () => {
     setLoading(true);

@@ -104,11 +104,7 @@ const LoginPage = ({ onLoginSuccess }) => {
 
           if (onLoginSuccess) onLoginSuccess(res.data);
 
-          // Chuyển về trang chủ sau 1.5 giây
-          setTimeout(() => {
-            console.log('[QR] navigate /home');
-            navigate('/home');
-          }, 1500);
+
 
         } else if (status === 'EXPIRED') {
           // QR hết hạn (2 phút) → tự tạo lại

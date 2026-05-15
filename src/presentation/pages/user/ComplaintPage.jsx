@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import LandTaxLayout from '../../components/LandTaxLayout';
 import { useUserInfo } from '../../../hooks/useUserInfo';
 
@@ -22,6 +22,15 @@ const ComplaintPage = () => {
   const [loading, setLoading] = useState(false);
   const [success, setSuccess] = useState(false);
   const [error, setError] = useState('');
+  const [complaints, setComplaints] = useState([]);
+  const [listLoading, setListLoading] = useState(true);
+
+  useEffect(() => {
+    userApi.getMyComplaints()
+      .then(list => setComplaints(list))
+      .catch(() => {})
+      .finally(() => setListLoading(false));
+  }, [success]);
 
   const handleChange = (e) => {
     const { name, value } = e.target;
@@ -219,6 +228,42 @@ const ComplaintPage = () => {
                 )}
               </button>
             </form>
+          </div>
+        </div>
+
+        {/* Lịch sử khiếu nại */}
+        <div className="card shadow-sm border-0" style={{ borderRadius: '16px' }}>
+          <div className="card-body p-4">
+            <h5 className="fw-bold mb-3">Lịch sử khiếu nại</h5>
+            {listLoading ? (
+              <div className="text-center py-3"><div className="spinner-border spinner-border-sm text-danger" /></div>
+            ) : complaints.length === 0 ? (
+              <p className="text-muted text-center py-3" style={{ fontSize: 13 }}>Chưa có khiếu nại nào</p>
+            ) : (
+              <div style={{ overflowX: 'auto' }}>
+                <table className="table table-sm" style={{ fontSize: 13 }}>
+                  <thead className="table-light">
+                    <tr>
+                      <th>Mã</th><th>Loại</th><th>Nội dung</th><th>Ngày gửi</th><th>Trạng thái</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {complaints.map((c, i) => {
+                      const st = STATUS_MAP[c.status] || { label: c.status, bg: '#f3f4f6', color: '#6b7280' };
+                      return (
+                        <tr key={c.complaintId || i}>
+                          <td className="fw-semibold">KN-{String(c.complaintId || i + 1).padStart(4, '0')}</td>
+                          <td>{c.complaintType || '—'}</td>
+                          <td style={{ maxWidth: 200, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{c.content || '—'}</td>
+                          <td>{c.createdAt ? new Date(c.createdAt).toLocaleDateString('vi-VN') : '—'}</td>
+                          <td><span style={{ padding: '3px 10px', borderRadius: 20, fontSize: 11, fontWeight: 600, background: st.bg, color: st.color }}>{st.label}</span></td>
+                        </tr>
+                      );
+                    })}
+                  </tbody>
+                </table>
+              </div>
+            )}
           </div>
         </div>
       </div>

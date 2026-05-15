@@ -7,7 +7,7 @@ const TaxOfficerDashboard = () => {
   const { user } = useUserInfo();
 
   return (
-    <LandTaxLayout user={user}>
+    <TaxOfficerLayout user={user}>
       <div style={{ padding: '20px 30px' }}>
         {/* Header */}
         <div style={{ marginBottom: 30 }}>
@@ -166,7 +166,7 @@ const TaxOfficerDashboard = () => {
           </div>
         </div>
       </div>
-    </LandTaxLayout>
+    </TaxOfficerLayout>
   );
 };
 

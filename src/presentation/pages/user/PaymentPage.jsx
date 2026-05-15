@@ -22,16 +22,7 @@ const PaymentPage = () => {
   const fetchPendingPayments = async () => {
     try {
       setLoading(true);
-      const res = await fetch(`${API_BASE}/tax/bills/unpaid`, {
-        headers: {
-          Authorization: `Bearer ${localStorage.getItem('token')}`,
-        },
-      });
-
-      if (!res.ok) throw new Error('Không thể tải danh sách thanh toán');
-
-      const json = await res.json();
-      const allRecords = json.data || json || [];
+      const allRecords = await userApi.getUnpaidBills();
       console.log(allRecords);
 
       // Lọc và map chuẩn xác các trường theo Database (hỗ trợ cả camelCase và snake_case)

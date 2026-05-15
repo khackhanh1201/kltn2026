@@ -22,7 +22,7 @@ const ComplaintManagement = () => {
   // ================= VIEW: DANH SÁCH =================
   if (view === 'list') {
     return (
-      <LandTaxLayout user={user}>
+      <TaxOfficerLayout user={user}>
         <div style={containerStyle}>
           
           {/* Header & Search */}
@@ -122,7 +122,7 @@ const ComplaintManagement = () => {
             </table>
           </div>
         </div>
-      </LandTaxLayout>
+      </TaxOfficerLayout>
     );
   }
 
@@ -130,7 +130,7 @@ const ComplaintManagement = () => {
   if (view === 'detail' && selectedComplaint) {
     const c = selectedComplaint;
     return (
-      <LandTaxLayout user={user}>
+      <TaxOfficerLayout user={user}>
         <div style={containerStyle}>
           {/* Header */}
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 25 }}>
@@ -222,7 +222,7 @@ const ComplaintManagement = () => {
             </div>
           </div>
         </div>
-      </LandTaxLayout>
+      </TaxOfficerLayout>
     );
   }
 };

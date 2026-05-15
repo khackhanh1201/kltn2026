@@ -44,7 +44,7 @@ const TaxProcessing = () => {
   };
 
   return (
-    <LandTaxLayout user={user}>
+    <TaxOfficerLayout user={user}>
       <div style={{ padding: '20px 30px', position: 'relative' }}>
         
         {/* Header Section */}
@@ -174,7 +174,7 @@ const TaxProcessing = () => {
           </table>
         </div>
       </div>
-    </LandTaxLayout>
+    </TaxOfficerLayout>
   );
 };
 
