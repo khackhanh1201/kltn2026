@@ -35,33 +35,48 @@ const CategoryManagement = () => {
 
   // 1. LẤY DỮ LIỆU TỪ BẢNG `areas`
   const fetchRegions = async () => {
-    setIsLoadingRegions(true);
-    try {
-      const token = localStorage.getItem('token');
-      const res = await fetch(`${baseUrl}/api/master-data/areas`, {
-        headers: { 'Authorization': `Bearer ${token}` }
-      });
-      if (res.ok) {
-        const data = await res.json();
-        setRegions(data.data || data);
-      } else {
-        // Fallback Mock Data map đúng trường DB
-        setRegions([
-          { area_id: 1, district_code: 'D001', ward_code: 'W001', street_name: 'Đường Nguyễn Trãi', position_level: 1, land_quota: 150.00 },
-          { area_id: 2, district_code: 'D001', ward_code: 'W002', street_name: 'Đường Lê Lợi', position_level: 2, land_quota: 200.00 },
-          { area_id: 3, district_code: 'D002', ward_code: 'W003', street_name: 'Đường Trần Hưng Đạo', position_level: 1, land_quota: 100.00 },
-        ]);
-      }
-    } catch (err) {
-      console.error(err);
+  setIsLoadingRegions(true);
+  try {
+    const token = localStorage.getItem('token');
+    console.log('Fetching regions with token:', token ? 'YES' : 'NO');
+    
+    const res = await fetch(`${baseUrl}/api/master-data/areas`, {
+      headers: { 'Authorization': `Bearer ${token}` }
+    });
+    
+    console.log('API Response Status:', res.status);
+    console.log('API Response OK:', res.ok);
+    
+    if (res.ok) {
+      const data = await res.json();
+      console.log('✓ API Success - Full Response:', data);
+      console.log('✓ data.data exists?', data.data ? 'YES' : 'NO');
+      console.log('✓ data.data structure:', JSON.stringify(data.data, null, 2));
+      
+      const regionsData = data.data || data;
+      console.log('✓ Setting regions to:', regionsData);
+      setRegions(regionsData);
+    } else {
+      const errorText = await res.text();
+      console.error('✗ API Failed - Status:', res.status, 'Response:', errorText);
+      console.log('Falling back to mock data');
       setRegions([
         { area_id: 1, district_code: 'D001', ward_code: 'W001', street_name: 'Đường Nguyễn Trãi', position_level: 1, land_quota: 150.00 },
         { area_id: 2, district_code: 'D001', ward_code: 'W002', street_name: 'Đường Lê Lợi', position_level: 2, land_quota: 200.00 },
+        { area_id: 3, district_code: 'D002', ward_code: 'W003', street_name: 'Đường Trần Hưng Đạo', position_level: 1, land_quota: 100.00 },
       ]);
-    } finally {
-      setIsLoadingRegions(false);
     }
-  };
+  } catch (err) {
+    console.error('Network error:', err);
+    console.log('Falling back to mock data due to error');
+    setRegions([
+      { area_id: 1, district_code: 'D001', ward_code: 'W001', street_name: 'Đường Nguyễn Trãi', position_level: 1, land_quota: 150.00 },
+      { area_id: 2, district_code: 'D001', ward_code: 'W002', street_name: 'Đường Lê Lợi', position_level: 2, land_quota: 200.00 },
+    ]);
+  } finally {
+    setIsLoadingRegions(false);
+  }
+};
 
   // 2. UPLOAD FILE VÀO BẢNG `tax_exempt_subjects`
   const handleFileUpload = async (event) => {
@@ -200,26 +215,26 @@ const CategoryManagement = () => {
                      <div className="text-center py-4"><span className="spinner-border text-warning spinner-border-sm"></span></div>
                   ) : (
                     regions.map((region, idx) => (
-                      <div key={idx} className="border rounded-3 p-3 d-flex justify-content-between align-items-center bg-white shadow-sm">
-                        <div>
-                          {/* Map trường district_code và ward_code */}
-                          <div className="fw-bold text-dark" style={{ fontSize: '15px' }}>{region.district_code} - {region.ward_code}</div>
-                          {/* Map trường street_name và position_level */}
-                          <div className="text-muted small mt-1">{region.street_name} (Vị trí: {region.position_level})</div>
-                        </div>
-                        <div className="d-flex align-items-center gap-3">
-                          {/* Map trường land_quota */}
-                          <div className="fw-bold text-dark fs-5">{region.land_quota} <span style={{fontSize: '14px', fontWeight: '600'}}>m²</span></div>
-                          <button 
-                            className="btn btn-light border d-flex align-items-center justify-content-center" 
-                            style={{ width: '36px', height: '36px' }}
-                            onClick={() => handleOpenConfig(region)}
-                          >
-                            <i className="bi bi-gear text-secondary"></i>
-                          </button>
-                        </div>
-                      </div>
-                    ))
+  <div key={idx} className="border rounded-3 p-3 d-flex justify-content-between align-items-center bg-white shadow-sm">
+    <div>
+      {/* Map trường districtCode và wardCode */}
+      <div className="fw-bold text-dark" style={{ fontSize: '15px' }}>{region.districtCode} - {region.wardCode}</div>
+      {/* Map trường streetName và positionLevel */}
+      <div className="text-muted small mt-1">{region.streetName} (Vị trí: {region.positionLevel})</div>
+    </div>
+    <div className="d-flex align-items-center gap-3">
+      {/* Map trường landQuota */}
+      <div className="fw-bold text-dark fs-5">{region.landQuota} <span style={{fontSize: '14px', fontWeight: '600'}}>m²</span></div>
+      <button 
+        className="btn btn-light border d-flex align-items-center justify-content-center" 
+        style={{ width: '36px', height: '36px' }}
+        onClick={() => handleOpenConfig(region)}
+      >
+        <i className="bi bi-gear text-secondary"></i>
+      </button>
+    </div>
+  </div>
+))
                   )}
                 </div>
               </div>
@@ -229,81 +244,109 @@ const CategoryManagement = () => {
         </div>
 
         {/* --- MODAL 1: DANH SÁCH ĐỐI TƯỢNG MIỄN GIẢM --- */}
-        {isExemptModalOpen && (
-          <div className="modal-overlay d-flex align-items-center justify-content-center" style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, backgroundColor: 'rgba(15, 23, 42, 0.6)', zIndex: 1050 }}>
-            <div className="card border-0 shadow-lg" style={{ width: '100%', maxWidth: '850px', borderRadius: '16px', overflow: 'hidden' }}>
-              <div className="bg-danger text-white px-4 py-3 d-flex justify-content-between align-items-center">
-                <div className="d-flex align-items-center gap-2">
-                  <i className="bi bi-list-check fs-5"></i>
-                  <h5 className="mb-0 fw-bold">Danh sách Đối tượng Miễn/Giảm thuế</h5>
-                </div>
-                <button className="btn text-white fs-4 p-0" onClick={() => setIsExemptModalOpen(false)}>
-                  <i className="bi bi-x"></i>
-                </button>
-              </div>
+{isExemptModalOpen && (
+  <div className="modal-overlay d-flex align-items-center justify-content-center" style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, backgroundColor: 'rgba(15, 23, 42, 0.6)', zIndex: 1050 }}>
+    <div className="card border-0 shadow-lg" style={{ width: '100%', maxWidth: '850px', borderRadius: '16px', overflow: 'hidden' }}>
+      <div className="bg-danger text-white px-4 py-3 d-flex justify-content-between align-items-center">
+        <div className="d-flex align-items-center gap-2">
+          <i className="bi bi-list-check fs-5"></i>
+          <h5 className="mb-0 fw-bold">Danh sách Đối tượng Miễn/Giảm thuế</h5>
+        </div>
+        <button className="btn text-white fs-4 p-0" onClick={() => setIsExemptModalOpen(false)}>
+          <i className="bi bi-x"></i>
+        </button>
+      </div>
 
-              <div className="p-4">
-                {/* Filter Bar */}
-                <div className="row g-3 mb-4">
-                  <div className="col-md-7 position-relative">
-                    <i className="bi bi-search position-absolute text-muted" style={{ left: '25px', top: '50%', transform: 'translateY(-50%)' }}></i>
-                    <input 
-                      type="text" 
-                      className="form-control py-2" 
-                      placeholder="Tìm kiếm theo Tên hoặc ID Công dân..." 
-                      value={exemptSearch}
-                      onChange={(e) => setExemptSearch(e.target.value)}
-                      style={{ paddingLeft: '40px', borderRadius: '8px' }}
-                    />
-                  </div>
-                  <div className="col-md-5">
-                    <select 
-                      className="form-select py-2" 
-                      value={exemptType}
-                      onChange={(e) => setExemptType(e.target.value)}
-                      style={{ borderRadius: '8px' }}
-                    >
-                      <option>Tất cả lý do miễn giảm</option>
-                      <option>Thương binh</option>
-                      <option>Hộ nghèo</option>
-                      <option>Mẹ VNAH</option>
-                      <option>Gia đình chính sách</option>
-                    </select>
-                  </div>
-                </div>
-
-                {/* Table */}
-                <div className="table-responsive mb-3 border rounded-3">
-                  <table className="table table-borderless table-hover align-middle mb-0">
-                    <thead className="border-bottom bg-light">
-                      <tr>
-                        <th className="py-3 px-4 text-muted small fw-bold">ID CÔNG DÂN</th>
-                        <th className="py-3 px-4 text-muted small fw-bold">HỌ VÀ TÊN</th>
-                        <th className="py-3 px-4 text-muted small fw-bold">LÝ DO MIỄN GIẢM</th>
-                        <th className="py-3 px-4 text-muted small fw-bold">MỨC MIỄN GIẢM (%)</th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {/* Lặp qua MOCK_EXEMPTIONS đã map theo đúng trường CSDL */}
-                      {MOCK_EXEMPTIONS.map((item, idx) => (
-                        <tr key={idx} className="border-bottom">
-                          <td className="py-3 px-4 text-secondary font-monospace">{item.citizen_id}</td>
-                          <td className="py-3 px-4 fw-bold text-dark">{item.full_name}</td>
-                          <td className="py-3 px-4 text-muted">{item.exemption_reason}</td>
-                          <td className="py-3 px-4">
-                            <span className="badge bg-success bg-opacity-10 text-success px-3 py-2 rounded-pill">
-                              {item.discount_rate}%
-                            </span>
-                          </td>
-                        </tr>
-                      ))}
-                    </tbody>
-                  </table>
-                </div>
-              </div>
-            </div>
+      <div className="p-4">
+        {/* Filter Bar - ONLY ONCE */}
+        <div className="row g-3 mb-4">
+          <div className="col-md-7 position-relative">
+            <i className="bi bi-search position-absolute text-muted" style={{ left: '25px', top: '50%', transform: 'translateY(-50%)' }}></i>
+            <input 
+              type="text" 
+              className="form-control py-2" 
+              placeholder="Tìm kiếm theo Tên hoặc ID Công dân..." 
+              value={exemptSearch}
+              onChange={(e) => setExemptSearch(e.target.value)}
+              style={{ paddingLeft: '40px', borderRadius: '8px' }}
+            />
           </div>
-        )}
+          <div className="col-md-5">
+            <select 
+              className="form-select py-2" 
+              value={exemptType}
+              onChange={(e) => setExemptType(e.target.value)}
+              style={{ borderRadius: '8px' }}
+            >
+              <option>Tất cả lý do miễn giảm</option>
+              <option>Thương binh</option>
+              <option>Hộ nghèo</option>
+              <option>Mẹ VNAH</option>
+              <option>Gia đình chính sách</option>
+            </select>
+          </div>
+        </div>
+
+        {/* Table - ONLY ONCE */}
+        <div className="table-responsive mb-3 border rounded-3">
+          <table className="table table-borderless table-hover align-middle mb-0">
+            <thead className="border-bottom bg-light">
+              <tr>
+                <th className="py-3 px-4 text-muted small fw-bold">ID CÔNG DÂN</th>
+                <th className="py-3 px-4 text-muted small fw-bold">HỌ VÀ TÊN</th>
+                <th className="py-3 px-4 text-muted small fw-bold">LÝ DO MIỄN GIẢM</th>
+                <th className="py-3 px-4 text-muted small fw-bold">MỨC MIỄN GIẢM (%)</th>
+              </tr>
+            </thead>
+            <tbody>
+              {MOCK_EXEMPTIONS
+                .filter(item => {
+                  const searchLower = exemptSearch.toLowerCase();
+                  const matchesSearch = 
+                    item.citizen_id.toString().includes(searchLower) || 
+                    item.full_name.toLowerCase().includes(searchLower);
+                  const matchesType = 
+                    exemptType === 'Tất cả lý do miễn giảm' || 
+                    item.exemption_reason === exemptType;
+                  return matchesSearch && matchesType;
+                })
+                .map((item, idx) => (
+                  <tr key={idx} className="border-bottom">
+                    <td className="py-3 px-4 text-secondary font-monospace">{item.citizen_id}</td>
+                    <td className="py-3 px-4 fw-bold text-dark">{item.full_name}</td>
+                    <td className="py-3 px-4 text-muted">{item.exemption_reason}</td>
+                    <td className="py-3 px-4">
+                      <span className="badge bg-success bg-opacity-10 text-success px-3 py-2 rounded-pill">
+                        {item.discount_rate}%
+                      </span>
+                    </td>
+                  </tr>
+                ))
+              }
+            </tbody>
+          </table>
+
+          {/* Empty State */}
+          {MOCK_EXEMPTIONS.filter(item => {
+            const searchLower = exemptSearch.toLowerCase();
+            const matchesSearch = 
+              item.citizen_id.toString().includes(searchLower) || 
+              item.full_name.toLowerCase().includes(searchLower);
+            const matchesType = 
+              exemptType === 'Tất cả lý do miễn giảm' || 
+              item.exemption_reason === exemptType;
+            return matchesSearch && matchesType;
+          }).length === 0 && (
+            <div className="text-center py-5">
+              <i className="bi bi-inbox text-muted" style={{ fontSize: '32px' }}></i>
+              <p className="text-muted mt-3">Không tìm thấy bản ghi nào phù hợp</p>
+            </div>
+          )}
+        </div>
+      </div>
+    </div>
+  </div>
+)}
 
         {/* --- MODAL 2: CẤU HÌNH HẠN MỨC --- */}
         {isConfigModalOpen && selectedRegion && (

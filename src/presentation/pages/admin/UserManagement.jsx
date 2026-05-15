@@ -1,32 +1,60 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import AdminLayout from '../../components/AdminLayout';
-
-// Mock Data
-const INITIAL_USERS = [
-  { id: '1', name: 'Nguyễn Văn Công', email: 'cong.nv@vneid.gov', role: 'Công dân', cccd: '001090123456', status: 'Hoạt động', lastLogin: '10:30 18/04/2026' },
-  { id: '2', name: 'Trần Thị Hằng', email: 'hang.tt@tax.gov.vn', role: 'Cán bộ Thuế', cccd: '001192654321', status: 'Hoạt động', lastLogin: '08:15 18/04/2026' },
-  { id: '3', name: 'Lê Minh Tuấn', email: 'tuan.lm@land.gov.vn', role: 'Cán bộ Địa chính', cccd: '037085987654', status: 'Hoạt động', lastLogin: '09:00 18/04/2026' },
-  { id: '4', name: 'Bùi Đức Mạnh', email: 'manh.bd@vneid.gov', role: 'Công dân', cccd: '001095111222', status: 'Bị khóa', lastLogin: '15:20 15/04/2026' },
-  { id: '5', name: 'Phạm Thu Trang', email: 'trang.pt@tax.gov.vn', role: 'Cán bộ Thuế', cccd: '034199333444', status: 'Hoạt động', lastLogin: '07:45 18/04/2026' },
-];
 
 const UserManagement = () => {
   const user = JSON.parse(localStorage.getItem('user_info') || '{}');
+  const baseUrl = 'http://localhost:8080';
 
-  const [users, setUsers] = useState(INITIAL_USERS);
+  const [users, setUsers] = useState([]);
   const [searchTerm, setSearchTerm] = useState('');
   const [roleFilter, setRoleFilter] = useState('Tất cả vai trò');
+  const [isLoading, setIsLoading] = useState(false);
   
   // Modal State
   const [isLockModalOpen, setIsLockModalOpen] = useState(false);
   const [selectedUser, setSelectedUser] = useState(null);
   const [lockReason, setLockReason] = useState('');
 
-  // Lọc dữ liệu
+  // ===== FETCH DATA TỪ BACKEND =====
+  useEffect(() => {
+    fetchUsers();
+  }, []);
+
+  const fetchUsers = async () => {
+    setIsLoading(true);
+    try {
+      const token = localStorage.getItem('token');
+      const headers = { 'Authorization': `Bearer ${token}` };
+
+      const response = await fetch(`${baseUrl}/api/admin/users`, { headers });
+      
+      if (response.ok) {
+        const data = await response.json();
+        setUsers(data.data || data);
+      } else {
+        // Fallback: dùng mock data nếu API fail
+        setUsers([
+          { id: '1', name: 'Nguyễn Văn Công', email: 'cong.nv@vneid.gov', role: 'Công dân', cccd: '001090123456', status: 'Hoạt động', lastLogin: '10:30 18/04/2026' },
+          { id: '2', name: 'Trần Thị Hằng', email: 'hang.tt@tax.gov.vn', role: 'Cán bộ Thuế', cccd: '001192654321', status: 'Hoạt động', lastLogin: '08:15 18/04/2026' },
+          { id: '3', name: 'Lê Minh Tuấn', email: 'tuan.lm@land.gov.vn', role: 'Cán bộ Địa chính', cccd: '037085987654', status: 'Hoạt động', lastLogin: '09:00 18/04/2026' },
+        ]);
+      }
+    } catch (error) {
+      console.error('Lỗi khi fetch users:', error);
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+    // Lọc dữ liệu
   const filteredUsers = users.filter(u => {
-    const matchSearch = u.name.toLowerCase().includes(searchTerm.toLowerCase()) || 
-                        u.email.toLowerCase().includes(searchTerm.toLowerCase()) ||
-                        u.cccd.includes(searchTerm);
+    const userName = u.name || u.fullName || '';
+    const userEmail = u.email || '';
+    const userCccd = u.cccd || u.citizenCccd || u.cccdNumber || '';
+    
+    const matchSearch = userName.toLowerCase().includes(searchTerm.toLowerCase()) || 
+                        userEmail.toLowerCase().includes(searchTerm.toLowerCase()) ||
+                        userCccd.includes(searchTerm);
     const matchRole = roleFilter === 'Tất cả vai trò' || u.role === roleFilter;
     return matchSearch && matchRole;
   });
@@ -38,15 +66,35 @@ const UserManagement = () => {
     setIsLockModalOpen(true);
   };
 
-  // Xử lý Khóa
-  const handleConfirmLock = () => {
+  // Xử lý Khóa (gọi API để cập nhật)
+  const handleConfirmLock = async () => {
     if (!lockReason.trim()) {
       alert('Vui lòng nhập lý do khóa tài khoản!');
       return;
     }
-    // Cập nhật state (Giả lập gọi API)
-    setUsers(users.map(u => u.id === selectedUser.id ? { ...u, status: 'Bị khóa' } : u));
-    setIsLockModalOpen(false);
+
+    try {
+      const token = localStorage.getItem('token');
+      const response = await fetch(
+        `${baseUrl}/api/admin/users/${selectedUser.cccd || selectedUser.citizenCccd}/status?active=false`,
+        {
+          method: 'PUT',
+          headers: { 'Authorization': `Bearer ${token}` }
+        }
+      );
+
+      if (response.ok) {
+        // Cập nhật state sau khi khóa thành công
+        setUsers(users.map(u => u.id === selectedUser.id ? { ...u, status: 'Bị khóa' } : u));
+        setIsLockModalOpen(false);
+        alert('Khóa tài khoản thành công!');
+      } else {
+        alert('Lỗi khi khóa tài khoản!');
+      }
+    } catch (error) {
+      console.error('Lỗi khi khóa tài khoản:', error);
+      alert('Lỗi khi khóa tài khoản!');
+    }
   };
 
   return (
@@ -91,74 +139,85 @@ const UserManagement = () => {
           </div>
         </div>
 
-        {/* Table */}
-        <div className="card shadow-sm border-0" style={{ borderRadius: '16px', overflow: 'hidden' }}>
-          <div className="table-responsive">
-            <table className="table table-borderless table-hover align-middle mb-0" style={{ minWidth: '950px' }}>
-              <thead className="bg-light border-bottom">
-                <tr>
-                  <th className="py-3 px-4 text-muted small fw-bold" style={{ letterSpacing: '0.5px' }}>ID / NGƯỜI DÙNG</th>
-                  <th className="py-3 px-4 text-muted small fw-bold" style={{ letterSpacing: '0.5px' }}>VAI TRÒ</th>
-                  <th className="py-3 px-4 text-muted small fw-bold" style={{ letterSpacing: '0.5px' }}>CCCD</th>
-                  <th className="py-3 px-4 text-muted small fw-bold" style={{ letterSpacing: '0.5px' }}>TRẠNG THÁI</th>
-                  <th className="py-3 px-4 text-muted small fw-bold" style={{ letterSpacing: '0.5px' }}>ĐĂNG NHẬP CUỐI</th>
-                  <th className="py-3 px-4 text-muted small fw-bold text-center" style={{ letterSpacing: '0.5px' }}>THAO TÁC</th>
-                </tr>
-              </thead>
-              <tbody>
-                {filteredUsers.map((u, idx) => (
-                  <tr key={u.id} className={idx !== filteredUsers.length - 1 ? "border-bottom" : ""}>
-                    <td className="py-3 px-4">
-                      <div className="d-flex align-items-center gap-3">
-                        <div className="rounded-circle bg-secondary bg-opacity-10 text-secondary d-flex align-items-center justify-content-center fw-bold" style={{ width: '40px', height: '40px', flexShrink: 0 }}>
-                          {u.name.charAt(0)}
-                        </div>
-                        <div>
-                          <div className="fw-bold text-dark">{u.name}</div>
-                          <div className="text-muted small mt-1">{u.email}</div>
-                        </div>
-                      </div>
-                    </td>
-                    <td className="py-3 px-4">
-                      <span className={`badge rounded-pill px-3 py-2 ${getRoleBadgeClass(u.role)}`}>
-                        {u.role}
-                      </span>
-                    </td>
-                    <td className="py-3 px-4 text-secondary small font-monospace">
-                      {u.cccd}
-                    </td>
-                    <td className="py-3 px-4">
-                      <div className={`d-flex align-items-center gap-2 small fw-semibold ${u.status === 'Hoạt động' ? 'text-success' : 'text-danger'}`}>
-                        <div className={`rounded-circle ${u.status === 'Hoạt động' ? 'bg-success' : 'bg-danger'}`} style={{ width: '8px', height: '8px' }}></div>
-                        {u.status}
-                      </div>
-                    </td>
-                    <td className="py-3 px-4 text-muted small">
-                      {u.lastLogin}
-                    </td>
-                    <td className="py-3 px-4 text-center">
-                      <button 
-                        className="btn btn-light btn-sm text-secondary" 
-                        onClick={() => handleOpenLockModal(u)}
-                        title={u.status === 'Hoạt động' ? 'Khóa tài khoản' : 'Mở khóa tài khoản'}
-                        style={{ borderRadius: '8px', width: '36px', height: '36px' }}
-                      >
-                        <i className={u.status === 'Hoạt động' ? "bi bi-lock-fill" : "bi bi-unlock-fill"}></i>
-                      </button>
-                    </td>
-                  </tr>
-                ))}
-                {filteredUsers.length === 0 && (
-                  <tr>
-                    <td colSpan="6" className="text-center py-5 text-muted">
-                      Không tìm thấy người dùng nào phù hợp.
-                    </td>
-                  </tr>
-                )}
-              </tbody>
-            </table>
+        {/* Loading State */}
+        {isLoading && (
+          <div className="text-center py-5">
+            <div className="spinner-border text-primary" role="status">
+              <span className="visually-hidden">Đang tải...</span>
+            </div>
           </div>
-        </div>
+        )}
+
+        {/* Table */}
+        {!isLoading && (
+          <div className="card shadow-sm border-0" style={{ borderRadius: '16px', overflow: 'hidden' }}>
+            <div className="table-responsive">
+              <table className="table table-borderless table-hover align-middle mb-0" style={{ minWidth: '950px' }}>
+                <thead className="bg-light border-bottom">
+                  <tr>
+                    <th className="py-3 px-4 text-muted small fw-bold" style={{ letterSpacing: '0.5px' }}>ID / NGƯỜI DÙNG</th>
+                    <th className="py-3 px-4 text-muted small fw-bold" style={{ letterSpacing: '0.5px' }}>VAI TRÒ</th>
+                    <th className="py-3 px-4 text-muted small fw-bold" style={{ letterSpacing: '0.5px' }}>CCCD</th>
+                    <th className="py-3 px-4 text-muted small fw-bold" style={{ letterSpacing: '0.5px' }}>TRẠNG THÁI</th>
+                    <th className="py-3 px-4 text-muted small fw-bold" style={{ letterSpacing: '0.5px' }}>ĐĂNG NHẬP CUỐI</th>
+                    <th className="py-3 px-4 text-muted small fw-bold text-center" style={{ letterSpacing: '0.5px' }}>THAO TÁC</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {filteredUsers.map((u, idx) => (
+                    <tr key={u.cccd || u.id || u.email || idx} className={idx !== filteredUsers.length - 1 ? "border-bottom" : ""}>
+                      <td className="py-3 px-4">
+                        <div className="d-flex align-items-center gap-3">
+                          <div className="rounded-circle bg-secondary bg-opacity-10 text-secondary d-flex align-items-center justify-content-center fw-bold" style={{ width: '40px', height: '40px', flexShrink: 0 }}>
+                            {(u.name || u.fullName || 'U').charAt(0)}
+                          </div>
+                          <div>
+                            <div className="fw-bold text-dark">{u.name || u.fullName || 'N/A'}</div>
+                            <div className="text-muted small mt-1">{u.email || 'N/A'}</div>
+                          </div>
+                        </div>
+                      </td>
+                      <td className="py-3 px-4">
+                        <span className={`badge rounded-pill px-3 py-2 ${getRoleBadgeClass(u.role)}`}>
+                          {u.role}
+                        </span>
+                      </td>
+                      <td className="py-3 px-4 text-secondary small font-monospace">
+                        {u.cccdNumber || 'N/A'}
+                      </td>
+                      <td className="py-3 px-4">
+                        <div className={`d-flex align-items-center gap-2 small fw-semibold ${u.status === 'Hoạt động' ? 'text-success' : 'text-danger'}`}>
+                          <div className={`rounded-circle ${u.status === 'Hoạt động' ? 'bg-success' : 'bg-danger'}`} style={{ width: '8px', height: '8px' }}></div>
+                          {u.status}
+                        </div>
+                      </td>
+                      <td className="py-3 px-4 text-muted small">
+                        {u.lastLogin || 'N/A'}
+                      </td>
+                      <td className="py-3 px-4 text-center">
+                        <button 
+                          className="btn btn-light btn-sm text-secondary" 
+                          onClick={() => handleOpenLockModal(u)}
+                          title={u.status === 'Hoạt động' ? 'Khóa tài khoản' : 'Mở khóa tài khoản'}
+                          style={{ borderRadius: '8px', width: '36px', height: '36px' }}
+                        >
+                          <i className={u.status === 'Hoạt động' ? "bi bi-lock-fill" : "bi bi-unlock-fill"}></i>
+                        </button>
+                      </td>
+                    </tr>
+                  ))}
+                  {filteredUsers.length === 0 && (
+                    <tr>
+                      <td colSpan="6" className="text-center py-5 text-muted">
+                        Không tìm thấy người dùng nào phù hợp.
+                      </td>
+                    </tr>
+                  )}
+                </tbody>
+              </table>
+            </div>
+          </div>
+        )}
 
         {/* Modal Khóa Tài Khoản */}
         {isLockModalOpen && selectedUser && (
@@ -173,9 +232,9 @@ const UserManagement = () => {
                   <div>
                     <h4 className="fw-bold text-dark mb-1">Khóa tài khoản</h4>
                     <p className="text-muted small mb-0" style={{ lineHeight: '1.5' }}>
-                      Đình chỉ tài khoản <span className="fw-bold text-dark">{selectedUser.name}</span><br />
-                      ({selectedUser.email}).
-                    </p>
+                      Đình chỉ tài khoản <span className="fw-bold text-dark">{selectedUser.name || selectedUser.fullName || 'N/A'}</span><br />
+                      ({selectedUser.email || 'N/A'}).
+                    </p>  
                   </div>
                 </div>
 

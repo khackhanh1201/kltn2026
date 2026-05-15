@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import LandTaxLayout from '../../components/LandTaxLayout';
+import { useUserInfo } from '../../../hooks/useUserInfo';
 
 const API_BASE = 'http://localhost:8080/api';
 
@@ -9,15 +10,19 @@ const getAuthHeaders = () => ({
   Authorization: `Bearer ${localStorage.getItem('token')}`,
 });
 
-// ── Màu trạng thái ──
+// ── Màu trạng thái (Update theo CSDL) ──
 const STATUS_CONFIG = {
-  // Tax records
-  PAID:     { label: 'Đã nộp',    bg: '#dcfce7', color: '#16a34a', dot: '#22c55e' },
-  PENDING:  { label: 'Chờ nộp',   bg: '#fef9c3', color: '#ca8a04', dot: '#eab308' },
-  OVERDUE:  { label: 'Trễ hạn',   bg: '#fee2e2', color: '#dc2626', dot: '#ef4444' },
-  // Declarations
-  APPROVED: { label: 'Đã duyệt',  bg: '#dcfce7', color: '#16a34a', dot: '#22c55e' },
-  REJECTED: { label: 'Từ chối',   bg: '#fee2e2', color: '#dc2626', dot: '#ef4444' },
+  // Tax Payments
+  PAID:       { label: 'Đã nộp',    bg: '#dcfce7', color: '#16a34a', dot: '#22c55e' },
+  UNPAID:     { label: 'Chờ nộp',   bg: '#fef9c3', color: '#ca8a04', dot: '#eab308' },
+  OVERDUE:    { label: 'Trễ hạn',   bg: '#fee2e2', color: '#dc2626', dot: '#ef4444' },
+  
+  // Tax Declarations & Records
+  PENDING:    { label: 'Chờ xử lý', bg: '#fef9c3', color: '#ca8a04', dot: '#eab308' },
+  APPROVED:   { label: 'Đã duyệt',  bg: '#dcfce7', color: '#16a34a', dot: '#22c55e' },
+  COMPLETED:  { label: 'Hoàn thành',bg: '#dcfce7', color: '#16a34a', dot: '#22c55e' },
+  REJECTED:   { label: 'Từ chối',   bg: '#fee2e2', color: '#dc2626', dot: '#ef4444' },
+  CANCELLED:  { label: 'Đã hủy',    bg: '#f1f5f9', color: '#64748b', dot: '#94a3b8' },
 };
 
 const StatusBadge = ({ status }) => {
@@ -56,23 +61,19 @@ const DonutChart = ({ paid, pending, overdue }) => {
 
   return (
     <svg viewBox="0 0 140 140" style={{ width: 140, height: 140 }}>
-      {/* nền */}
       <circle cx={cx} cy={cy} r={r} fill="none" stroke="#f1f5f9" strokeWidth={stroke} />
-      {/* overdue */}
       {overdueDash > 0 && (
         <circle cx={cx} cy={cy} r={r} fill="none" stroke="#ef4444" strokeWidth={stroke}
           strokeDasharray={`${overdueDash} ${circ - overdueDash}`}
           strokeDashoffset={overdueOffset} strokeLinecap="round"
           style={{ transform: 'rotate(-90deg)', transformOrigin: `${cx}px ${cy}px` }} />
       )}
-      {/* pending */}
       {pendingDash > 0 && (
         <circle cx={cx} cy={cy} r={r} fill="none" stroke="#eab308" strokeWidth={stroke}
           strokeDasharray={`${pendingDash} ${circ - pendingDash}`}
           strokeDashoffset={pendingOffset} strokeLinecap="round"
           style={{ transform: 'rotate(-90deg)', transformOrigin: `${cx}px ${cy}px` }} />
       )}
-      {/* paid */}
       {paidDash > 0 && (
         <circle cx={cx} cy={cy} r={r} fill="none" stroke="#22c55e" strokeWidth={stroke}
           strokeDasharray={`${paidDash} ${circ - paidDash}`}
@@ -87,8 +88,8 @@ const DonutChart = ({ paid, pending, overdue }) => {
 
 const LandTaxPage = () => {
   const navigate = useNavigate();
-  const user = JSON.parse(localStorage.getItem('user_info') || '{}');
-  const userId = user?.userId || user?.data?.userId;
+  // const user = JSON.parse(localStorage.getItem('user_info') || '{}');
+  const { user } = useUserInfo();
 
   const [taxRecords, setTaxRecords]       = useState([]);
   const [declarations, setDeclarations]   = useState([]);
@@ -98,7 +99,6 @@ const LandTaxPage = () => {
 
   useEffect(() => {
     fetchAll();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   const fetchAll = async () => {
@@ -112,11 +112,49 @@ const LandTaxPage = () => {
 
       if (recRes.ok) {
         const j = await recRes.json();
-        setTaxRecords(j.data || []);
+        const raw = j.data || j || [];
+        
+        // 1. Map dữ liệu bảng `tax_payments`
+        const mappedTaxes = raw.map(r => {
+          let st = r.payment_status || r.status || 'UNPAID';
+          
+          // Logic: Nếu chưa nộp mà hạn nộp đã qua -> Trễ hạn
+          if (st === 'UNPAID' && r.due_date && new Date(r.due_date) < new Date()) {
+            st = 'OVERDUE';
+          }
+          
+          return {
+            ...r,
+            taxId: r.pay_id || r.id,
+            status: st,
+            parcelCode: r.parcel_number || r.parcelCode,
+            parcelId: r.land_parcel_id || r.parcelId,
+            taxYear: r.tax_year || r.taxYear,
+            taxAmount: r.total_amount_due || r.amount,
+            dueDate: r.due_date || r.dueDate,
+            createdAt: r.paid_at || r.created_at || r.dueDate, // Fallback ngày hiển thị
+          };
+        });
+        setTaxRecords(mappedTaxes);
       }
+
       if (declRes.ok) {
         const j = await declRes.json();
-        setDeclarations(j.data || []);
+        const raw = j.data || j || [];
+        
+        // 2. Map dữ liệu bảng `tax_declarations`
+        const mappedDecls = raw.map(d => ({
+          ...d,
+          declarationId: d.id,
+          createdAt: d.submitted_at || d.createdAt,
+          parcelCode: d.parcel_number || d.parcelCode,
+          parcelId: d.parcel_id || d.parcelId,
+          taxYear: d.tax_year || d.taxYear,
+          declaredArea: d.declared_area || d.declaredArea,
+          declaredPurpose: d.declared_purpose || d.declaredPurpose,
+          status: d.status
+        }));
+        setDeclarations(mappedDecls);
       }
     } catch (err) {
       setError('Không thể tải dữ liệu. Vui lòng thử lại.');
@@ -127,12 +165,12 @@ const LandTaxPage = () => {
 
   // ── Tính toán stats ──
   const paid    = taxRecords.filter(r => r.status === 'PAID').length;
-  const pending = taxRecords.filter(r => r.status === 'PENDING').length;
+  const pending = taxRecords.filter(r => r.status === 'UNPAID' || r.status === 'PENDING').length;
   const overdue = taxRecords.filter(r => r.status === 'OVERDUE').length;
   const total   = taxRecords.length;
 
   const declPending  = declarations.filter(d => d.status === 'PENDING').length;
-  const declApproved = declarations.filter(d => d.status === 'APPROVED').length;
+  const declApproved = declarations.filter(d => d.status === 'APPROVED' || d.status === 'COMPLETED').length;
   const declRejected = declarations.filter(d => d.status === 'REJECTED').length;
   const declTotal    = declarations.length;
   const declPct      = declTotal > 0 ? Math.round((declApproved / declTotal) * 100) : 0;
@@ -144,7 +182,7 @@ const LandTaxPage = () => {
       detail: `Năm ${r.taxYear} · ${Number(r.taxAmount).toLocaleString('vi-VN')} ₫`,
       color: '#ef4444',
     })),
-    ...taxRecords.filter(r => r.status === 'PENDING').map(r => ({
+    ...taxRecords.filter(r => r.status === 'UNPAID' || r.status === 'PENDING').map(r => ({
       type: 'pending', label: `Thuế đến hạn nộp — ${r.parcelCode || 'Thửa #' + r.parcelId}`,
       detail: r.dueDate ? `Hạn: ${new Date(r.dueDate).toLocaleDateString('vi-VN')}` : '',
       color: '#f59e0b',
@@ -192,7 +230,7 @@ const LandTaxPage = () => {
             <div style={styles.card}>
               <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
                 <div>
-                  <p style={styles.cardLabel}>Trạng thái thuế</p>
+                  <p style={styles.cardLabel}>Trạng thái nộp thuế</p>
                   <p style={styles.cardSub}>Tổng khoản thuế: {total}</p>
                 </div>
               </div>
@@ -251,7 +289,7 @@ const LandTaxPage = () => {
             {/* Trạng thái hồ sơ */}
             <div style={styles.card}>
               <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 4 }}>
-                <p style={styles.cardLabel}>Trạng thái hồ sơ</p>
+                <p style={styles.cardLabel}>Trạng thái hồ sơ khai báo</p>
                 <span style={{ fontSize: 12, color: '#94a3b8' }}>Tổng hồ sơ: {declTotal}</span>
               </div>
               <div style={{ marginBottom: 10 }}>
@@ -283,9 +321,9 @@ const LandTaxPage = () => {
             <h5 style={{ fontWeight: 700, color: '#1e293b', marginBottom: 12, fontSize: 15 }}>Chức năng</h5>
             <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 12 }}>
               {[
-                { icon: 'bi-search', label: 'Tra cứu thông tin đất', desc: 'Tra cứu thông tin quy hoạch, diện tích, giá đất', onClick: () => {} },
+                { icon: 'bi-search', label: 'Tra cứu thông tin đất', desc: 'Tra cứu thông tin quy hoạch, diện tích, giá đất', onClick: () => navigate('/land-information') },
                 { icon: 'bi-file-earmark-plus', label: 'Nộp hồ sơ khai thuế đất', desc: 'Tạo mới và gửi hồ sơ khai báo thuế đất', onClick: () => navigate('/property-declaration') },
-                { icon: 'bi-credit-card', label: 'Nộp thuế', desc: 'Thanh toán trực tuyến các khoản thuế đất', onClick: () => {} },
+                { icon: 'bi-credit-card', label: 'Nộp thuế', desc: 'Thanh toán trực tuyến các khoản thuế đất', onClick: () => navigate('/payment') },
                 { icon: 'bi-clock-history', label: 'Theo dõi trạng thái hồ sơ', desc: 'Kiểm tra tiến độ xử lý hồ sơ đã nộp', onClick: () => setActiveTab('declarations') },
                 { icon: 'bi-chat-left-text', label: 'Gửi khiếu nại', desc: 'Gửi phản ánh, thắc mắc về thuế đất', onClick: () => navigate('/complaint') },
               ].map((fn, i) => (
@@ -324,8 +362,8 @@ const LandTaxPage = () => {
             {/* Tabs */}
             <div style={{ display: 'flex', gap: 0, borderBottom: '1px solid #f1f5f9', marginBottom: 16 }}>
               {[
-                { key: 'tax',          label: 'Lịch sử nộp thuế' },
-                { key: 'declarations', label: 'Lịch sử nộp hồ sơ' },
+                { key: 'tax',          label: 'Lịch sử hóa đơn thuế' },
+                { key: 'declarations', label: 'Lịch sử tờ khai' },
               ].map(tab => (
                 <button key={tab.key} onClick={() => setActiveTab(tab.key)} style={{
                   background: 'none', border: 'none', padding: '8px 16px', cursor: 'pointer',
@@ -351,7 +389,7 @@ const LandTaxPage = () => {
                   <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 13 }}>
                     <thead>
                       <tr style={{ background: '#f8fafc' }}>
-                        {['Mã giao dịch/Hồ sơ', 'Ngày tháng', 'Thửa đất', 'Nội dung', 'Số tiền', 'Trạng thái'].map(h => (
+                        {['Mã thanh toán', 'Ngày cập nhật', 'Thửa đất', 'Năm thuế', 'Số tiền', 'Trạng thái'].map(h => (
                           <th key={h} style={{ padding: '10px 14px', textAlign: 'left', color: '#64748b', fontWeight: 600, fontSize: 12, borderBottom: '1px solid #f1f5f9' }}>{h}</th>
                         ))}
                       </tr>
@@ -359,7 +397,7 @@ const LandTaxPage = () => {
                     <tbody>
                       {taxRecords.map((r, i) => (
                         <tr key={r.taxId} style={{ borderBottom: '1px solid #f8fafc', background: i % 2 === 0 ? '#fff' : '#fafafa' }}>
-                          <td style={{ padding: '10px 14px', fontWeight: 600, color: '#1e293b' }}>TX-{String(r.taxId).padStart(3, '0')}</td>
+                          <td style={{ padding: '10px 14px', fontWeight: 600, color: '#1e293b' }}>PAY-{String(r.taxId).padStart(3, '0')}</td>
                           <td style={{ padding: '10px 14px', color: '#64748b' }}>{formatDate(r.createdAt)}</td>
                           <td style={{ padding: '10px 14px', color: '#64748b' }}>{r.parcelCode || 'Thửa #' + r.parcelId}</td>
                           <td style={{ padding: '10px 14px', color: '#475569' }}>Thuế đất năm {r.taxYear}</td>
@@ -373,19 +411,19 @@ const LandTaxPage = () => {
               )
             )}
 
-            {/* Bảng lịch sử hồ sơ */}
+            {/* Bảng lịch sử tờ khai */}
             {activeTab === 'declarations' && (
               declarations.length === 0 ? (
                 <div style={{ textAlign: 'center', padding: '30px 0', color: '#94a3b8' }}>
                   <i className="bi bi-inbox" style={{ fontSize: 32 }} />
-                  <p style={{ marginTop: 8, fontSize: 13 }}>Chưa có hồ sơ nào</p>
+                  <p style={{ marginTop: 8, fontSize: 13 }}>Chưa có tờ khai nào</p>
                 </div>
               ) : (
                 <div style={{ overflowX: 'auto' }}>
                   <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 13 }}>
                     <thead>
                       <tr style={{ background: '#f8fafc' }}>
-                        {['Mã hồ sơ', 'Ngày nộp', 'Thửa đất', 'Năm thuế', 'Diện tích (m²)', 'Mục đích', 'Trạng thái'].map(h => (
+                        {['Mã tờ khai', 'Ngày nộp', 'Thửa đất', 'Năm thuế', 'Diện tích (m²)', 'Mục đích', 'Trạng thái'].map(h => (
                           <th key={h} style={{ padding: '10px 14px', textAlign: 'left', color: '#64748b', fontWeight: 600, fontSize: 12, borderBottom: '1px solid #f1f5f9' }}>{h}</th>
                         ))}
                       </tr>
@@ -393,7 +431,7 @@ const LandTaxPage = () => {
                     <tbody>
                       {declarations.map((d, i) => (
                         <tr key={d.declarationId} style={{ borderBottom: '1px solid #f8fafc', background: i % 2 === 0 ? '#fff' : '#fafafa' }}>
-                          <td style={{ padding: '10px 14px', fontWeight: 600, color: '#1e293b' }}>HS-{String(d.declarationId).padStart(3, '0')}</td>
+                          <td style={{ padding: '10px 14px', fontWeight: 600, color: '#1e293b' }}>TK-{String(d.declarationId).padStart(3, '0')}</td>
                           <td style={{ padding: '10px 14px', color: '#64748b' }}>{formatDate(d.createdAt)}</td>
                           <td style={{ padding: '10px 14px', color: '#64748b' }}>{d.parcelCode || 'Thửa #' + d.parcelId}</td>
                           <td style={{ padding: '10px 14px', color: '#475569' }}>{d.taxYear}</td>

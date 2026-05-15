@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-// import DashboardLayout from '../components/DashboardLayout';
 import LandTaxLayout from '../../components/LandTaxLayout';
+import { useUserInfo } from '../../../hooks/useUserInfo';
 
 const API_BASE = 'http://localhost:8080/api';
 const getAuth  = () => ({ 'Content-Type': 'application/json', Authorization: `Bearer ${localStorage.getItem('token')}` });
@@ -11,12 +11,19 @@ const formatDate = (v) => v ? new Date(v).toLocaleDateString('vi-VN') : '—';
 
 const TAX_LABELS = {
   ONT: 'Thuế sử dụng đất phi nông nghiệp',
+  ODT: 'Thuế sử dụng đất phi nông nghiệp (Đô thị)',
   CLN: 'Thuế sử dụng đất nông nghiệp',
-  TMD: 'Thuế thu nhập cá nhân (Chuyển nhượng)',
+  TMD: 'Thuế thương mại, dịch vụ',
+  SKC: 'Thuế cơ sở sản xuất kinh doanh',
   LPT: 'Lệ phí trước bạ',
 };
+
 const getTaxLabel = (r) => {
-  if (r.parcelCode) { const p = r.parcelCode.split('-')[0]; if (TAX_LABELS[p]) return TAX_LABELS[p]; }
+  // Lấy ra mã loại đất từ mã thửa (VD: ODT-1234 -> ODT)
+  if (r.parcelCode) { 
+    const p = r.parcelCode.split('-')[0]; 
+    if (TAX_LABELS[p]) return TAX_LABELS[p]; 
+  }
   return 'Thuế sử dụng đất phi nông nghiệp';
 };
 
@@ -24,20 +31,25 @@ const StatusBadge = ({ status }) => {
   const cfg = status === 'PAID'
     ? { label: 'Đã hoàn thành', bg: '#dcfce7', color: '#16a34a' }
     : status === 'OVERDUE'
-    ? { label: 'Quá hạn', bg: '#fee2e2', color: '#dc2626' }
-    : { label: 'Chưa trả', bg: '#fef9c3', color: '#ca8a04' };
-  return <span style={{ padding: '4px 12px', borderRadius: 20, fontSize: 12, fontWeight: 600, background: cfg.bg, color: cfg.color }}>{cfg.label}</span>;
+    ? { label: 'Trễ hạn', bg: '#fee2e2', color: '#dc2626' }
+    : { label: 'Chưa thanh toán', bg: '#fef9c3', color: '#ca8a04' }; // PENDING hoặc UNPAID
+    
+  return (
+    <span style={{ padding: '4px 12px', borderRadius: 20, fontSize: 12, fontWeight: 600, background: cfg.bg, color: cfg.color }}>
+      {cfg.label}
+    </span>
+  );
 };
 
 const TaxPage = () => {
   const navigate = useNavigate();
+  const { user } = useUserInfo();
   const [records,   setRecords]   = useState([]);
   const [filtered,  setFiltered]  = useState([]);
   const [tab,       setTab]       = useState('all');
   const [search,    setSearch]    = useState('');
   const [loading,   setLoading]   = useState(true);
   const [selected,  setSelected]  = useState(null);
-  const [declDetail,setDeclDetail]= useState({});
   const [showAdv,   setShowAdv]   = useState(false);
   const [adv, setAdv] = useState({ name: '', year: '', amount: '', status: '' });
 
@@ -46,8 +58,8 @@ const TaxPage = () => {
   useEffect(() => {
     const q = search.toLowerCase();
     setFiltered(records.filter(r => {
-      const matchTab    = tab === 'all' ? true : tab === 'unpaid' ? (r.status === 'UNPAID' || r.status === 'OVERDUE') : r.status === 'PAID';
-      const matchSearch = !q || (r.parcelCode||'').toLowerCase().includes(q) || getTaxLabel(r).toLowerCase().includes(q);
+      const matchTab    = tab === 'all' ? true : tab === 'unpaid' ? (r.status === 'UNPAID' || r.status === 'PENDING' || r.status === 'OVERDUE') : r.status === 'PAID';
+      const matchSearch = !q || (r.parcelCode||'').toLowerCase().includes(q) || getTaxLabel(r).toLowerCase().includes(q) || String(r.taxId).includes(q);
       const matchName   = !adv.name   || getTaxLabel(r).toLowerCase().includes(adv.name.toLowerCase());
       const matchYear   = !adv.year   || String(r.taxYear) === adv.year;
       const matchAmt    = !adv.amount || Number(r.taxAmount) >= Number(adv.amount);
@@ -57,56 +69,74 @@ const TaxPage = () => {
   }, [records, tab, search, adv]);
 
   const fetchRecords = async () => {
-  setLoading(true);
+    setLoading(true);
 
-  try {
-    const [unpaidRes, paidRes, declRes] = await Promise.all([
-      fetch(`${API_BASE}/tax/bills/unpaid`, { headers: getAuth() }),
-      fetch(`${API_BASE}/tax/bills/paid`, { headers: getAuth() }),
-      fetch(`${API_BASE}/tax/declarations/my-history`, { headers: getAuth() }),
-    ]);
+    try {
+      const [unpaidRes, paidRes, declRes] = await Promise.all([
+        fetch(`${API_BASE}/tax/bills/unpaid`, { headers: getAuth() }),
+        fetch(`${API_BASE}/tax/bills/paid`, { headers: getAuth() }),
+        fetch(`${API_BASE}/tax/declarations/my-history`, { headers: getAuth() }),
+      ]);
 
-    const unpaidBills = await unpaidRes.json();
-    const paidBills   = await paidRes.json();
-    const declarations = await declRes.json();
+      const unpaidBills = await unpaidRes.json();
+      const paidBills   = await paidRes.json();
+      const declarations = await declRes.json();
 
-    const allBills = [...unpaidBills, ...paidBills];
+      const allBills = [...(unpaidBills.data || unpaidBills || []), ...(paidBills.data || paidBills || [])];
+      const allDecls = declarations.data || declarations || [];
 
-    const merged = allBills.map(bill => {
-      const decl = declarations.find(
-        d => d.id === bill.declarationId
-      );
+      // Nhào nặn dữ liệu: Mix bảng tax_bills/tax_payments với tax_declarations
+      const merged = allBills.map(bill => {
+        const declId = bill.declaration_id || bill.declarationId;
+        const decl = allDecls.find(d => d.id === declId);
 
-      return {
-  taxId: bill.billId,
-  declarationId: bill.declarationId,
+        let st = bill.payment_status || bill.status || 'UNPAID';
+        const due = bill.due_date || bill.dueDate;
 
-  taxAmount: bill.amount,
-  status: bill.status,
+        // Tự động gán Trễ hạn nếu vượt quá ngày nộp
+        if ((st === 'UNPAID' || st === 'PENDING') && due && new Date(due) < new Date()) {
+          st = 'OVERDUE';
+        }
 
-  taxYear: decl?.taxYear || '—',
-  parcelId: decl?.parcelId || '—',
-  declaredArea: decl?.declaredArea || '—',
+        return {
+          taxId: bill.pay_id || bill.bill_id || bill.id || bill.billId,
+          declarationId: declId || decl?.id,
+          
+          taxAmount: bill.total_amount_due || bill.amount || 0,
+          status: st,
+          
+          taxYear: bill.tax_year || bill.taxYear || decl?.tax_year || decl?.taxYear || '—',
+          parcelId: bill.land_parcel_id || bill.parcelId || decl?.parcel_id || decl?.parcelId || '—',
+          parcelCode: bill.parcel_number || bill.parcelCode || decl?.parcel_number || decl?.parcelCode,
+          
+          dueDate: due,
+          paidAt: bill.paid_at || bill.paidAt,
+          
+          // Lấy chi tiết tính toán từ tax_declarations hoặc tax_bills
+          declaredArea: decl?.declared_area || decl?.declaredArea || '—',
+          taxRate: decl?.tax_rate || decl?.taxRate || '—',
+          unitPrice: decl?.unit_price || decl?.unitPrice || '—',
+          formula: bill.calculation_formula || bill.calculationFormula || decl?.calculation_formula || '',
+        };
+      });
 
-  dueDate: null,
-};
-    });
+      // Sắp xếp ID lớn nhất (mới nhất) lên đầu
+      merged.sort((a, b) => b.taxId - a.taxId);
+      setRecords(merged);
 
-    setRecords(merged);
-
-  } catch (e) {
-    console.error(e);
-  } finally {
-    setLoading(false);
-  }
-};
+    } catch (e) {
+      console.error("Lỗi lấy dữ liệu hóa đơn:", e);
+    } finally {
+      setLoading(false);
+    }
+  };
 
   const openDetail = (r) => {
-  setSelected(r);
-};
+    setSelected(r);
+  };
 
   return (
-    <LandTaxLayout>
+    <LandTaxLayout user={user}>
       {/* Header */}
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 24 }}>
         <div>
@@ -155,7 +185,7 @@ const TaxPage = () => {
             </thead>
             <tbody>
               {filtered.length === 0 ? (
-                <tr><td colSpan={7} style={{ textAlign: 'center', padding: '50px', color: '#94a3b8', fontSize: 13 }}>Không có dữ liệu</td></tr>
+                <tr><td colSpan={7} style={{ textAlign: 'center', padding: '50px', color: '#94a3b8', fontSize: 13 }}>Không có dữ liệu thuế nào.</td></tr>
               ) : filtered.map((r, i) => (
                 <tr key={r.taxId || i} style={{ borderBottom: '1px solid #f1f5f9' }}
                   onMouseEnter={e => e.currentTarget.style.background = '#fafafa'}
@@ -173,8 +203,8 @@ const TaxPage = () => {
                         onMouseLeave={e => e.currentTarget.style.color = '#94a3b8'}>
                         <i className="bi bi-eye" />
                       </button>
-                      {(r.status === 'UNPAID' || r.status === 'OVERDUE') && (
-                        <button style={{ background: '#c8102e', border: 'none', cursor: 'pointer', color: '#fff', borderRadius: 8, width: 32, height: 32, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 15 }}>
+                      {(r.status === 'UNPAID' || r.status === 'PENDING' || r.status === 'OVERDUE') && (
+                        <button onClick={() => navigate('/payment')} style={{ background: '#c8102e', border: 'none', cursor: 'pointer', color: '#fff', borderRadius: 8, width: 32, height: 32, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 15 }}>
                           <i className="bi bi-credit-card" />
                         </button>
                       )}
@@ -191,21 +221,21 @@ const TaxPage = () => {
       {selected && (
         <div onClick={() => setSelected(null)} style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.4)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 2000, backdropFilter: 'blur(2px)' }}>
           <div onClick={e => e.stopPropagation()} style={{ background: '#fff', borderRadius: 16, width: 580, maxWidth: '92vw', maxHeight: '90vh', display: 'flex', flexDirection: 'column', boxShadow: '0 20px 60px rgba(0,0,0,0.15)' }}>
+            
             {/* Header */}
             <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '16px 24px', borderBottom: '1px solid #f1f5f9' }}>
               <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
                 <i className="bi bi-arrow-left" onClick={() => setSelected(null)} style={{ cursor: 'pointer', color: '#64748b', fontSize: 16 }} />
-                <span style={{ fontWeight: 700, fontSize: 16 }}>Chi tiết tính thuế</span>
+                <span style={{ fontWeight: 700, fontSize: 16 }}>Chi tiết khoản thuế</span>
               </div>
               <button onClick={() => setSelected(null)} style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#94a3b8', fontSize: 20 }}>×</button>
             </div>
 
-            {/* Body - Biên lai */}
+            {/* Body */}
             <div style={{ overflowY: 'auto', padding: '24px', flex: 1 }}>
-              {/* Biên lai */}
               <div style={{ border: '1px solid #e2e8f0', borderRadius: 12, padding: '24px', marginBottom: 20 }}>
-                <h5 style={{ textAlign: 'center', fontWeight: 800, fontSize: 16, letterSpacing: '0.05em', margin: '0 0 4px' }}>BIÊN LAI THU THUẾ / LỆ PHÍ</h5>
-                <p style={{ textAlign: 'center', fontSize: 12, color: '#94a3b8', margin: '0 0 20px' }}>Mã số: BL-{selected.taxYear}-{String(selected.taxId).padStart(5,'0')}</p>
+                <h5 style={{ textAlign: 'center', fontWeight: 800, fontSize: 16, letterSpacing: '0.05em', margin: '0 0 4px' }}>BIÊN LAI / THÔNG BÁO THUẾ</h5>
+                <p style={{ textAlign: 'center', fontSize: 12, color: '#94a3b8', margin: '0 0 20px' }}>Mã tham chiếu: TAX-{selected.taxYear}-{String(selected.taxId).padStart(5,'0')}</p>
                 <div style={{ height: 1, background: '#e2e8f0', marginBottom: 16 }} />
 
                 <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 16, marginBottom: 16 }}>
@@ -221,9 +251,9 @@ const TaxPage = () => {
 
                 <p style={{ fontSize: 12, color: '#94a3b8', margin: '0 0 3px' }}>Thông tin tài sản</p>
                 <p style={{ fontSize: 13, color: '#475569', margin: '0 0 4px' }}>
-                  Số vào số cấp GCN: <span style={{ color: '#c8102e', fontWeight: 700 }}>{selected.parcelCode || '—'}</span>
+                  Mã thửa đất: <span style={{ color: '#c8102e', fontWeight: 700 }}>{selected.parcelCode || `Thửa #${selected.parcelId}`}</span>
                 </p>
-                <p style={{ fontSize: 13, color: '#475569', margin: '0 0 16px' }}>Địa chỉ: Thửa đất #{selected.parcelId}</p>
+                <p style={{ fontSize: 13, color: '#475569', margin: '0 0 16px' }}>Mã Tờ khai gốc: {selected.declarationId ? `TK-${selected.declarationId}` : '—'}</p>
 
                 <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 16, marginBottom: 16 }}>
                   <div>
@@ -236,17 +266,17 @@ const TaxPage = () => {
                   </div>
                 </div>
 
-                {/* Chi tiết tính thuế */}
+                {/* Chi tiết tính thuế (Map từ DB) */}
                 <div style={{ background: '#fafafa', borderRadius: 10, padding: '16px' }}>
                   <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 12 }}>
                     <i className="bi bi-calculator" style={{ color: '#475569' }} />
                     <span style={{ fontWeight: 700, fontSize: 14 }}>Chi tiết tính thuế</span>
                   </div>
                   {[
-                    { label: 'Diện tích:', value: selected.declaredArea != null ? `${selected.declaredArea} m²` : '—' },
-                    { label: 'Giá đất:', value: '35.000.000 đ/m²' },
-                    { label: 'Thuế suất:', value: '0.03%' },
-                    { label: 'Công thức:', value: `Diện tích (${selected.declaredArea || '—'}m2) x Giá đất (35tr/m2) x Thuế suất (0.03%)`, italic: true },
+                    { label: 'Diện tích chịu thuế:', value: selected.declaredArea !== '—' ? `${selected.declaredArea} m²` : '—' },
+                    { label: 'Giá đất áp dụng:', value: selected.unitPrice !== '—' ? `${Number(selected.unitPrice).toLocaleString()} đ/m²` : '—' },
+                    { label: 'Hệ số / Thuế suất:', value: selected.taxRate !== '—' ? `${selected.taxRate}%` : '—' },
+                    { label: 'Công thức:', value: selected.formula || 'Tính theo biểu giá nhà nước hiện hành', italic: true },
                   ].map(row => (
                     <div key={row.label} style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 8, fontSize: 13 }}>
                       <span style={{ color: '#64748b' }}>{row.label}</span>
@@ -267,14 +297,16 @@ const TaxPage = () => {
                 style={{ padding: '10px 18px', background: '#fff', color: '#475569', border: '1px solid #e2e8f0', borderRadius: 8, fontSize: 13, fontWeight: 600, cursor: 'pointer' }}>
                 Đóng
               </button>
-              {(selected.status === 'UNPAID' || selected.status === 'OVERDUE') && (
-                <button style={{ padding: '10px 18px', background: '#16a34a', color: '#fff', border: 'none', borderRadius: 8, fontSize: 13, fontWeight: 700, cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 6 }}>
-                  <i className="bi bi-credit-card" /> Thanh toán ngay
+              {(selected.status === 'UNPAID' || selected.status === 'PENDING' || selected.status === 'OVERDUE') && (
+                <button onClick={() => navigate('/payment')} style={{ padding: '10px 18px', background: '#16a34a', color: '#fff', border: 'none', borderRadius: 8, fontSize: 13, fontWeight: 700, cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 6 }}>
+                  <i className="bi bi-credit-card" /> Thanh toán
                 </button>
               )}
-              <button style={{ padding: '10px 18px', background: '#c8102e', color: '#fff', border: 'none', borderRadius: 8, fontSize: 13, fontWeight: 700, cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 6 }}>
-                <i className="bi bi-download" /> Tải biên lai (PDF)
-              </button>
+              {selected.status === 'PAID' && (
+                <button style={{ padding: '10px 18px', background: '#c8102e', color: '#fff', border: 'none', borderRadius: 8, fontSize: 13, fontWeight: 700, cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 6 }}>
+                  <i className="bi bi-download" /> Tải biên lai
+                </button>
+              )}
             </div>
           </div>
         </div>
@@ -289,9 +321,9 @@ const TaxPage = () => {
               <button onClick={() => setShowAdv(false)} style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#94a3b8', fontSize: 18 }}>×</button>
             </div>
             {[
-              { label: 'Tên tài khoản thu', key: 'name', placeholder: 'VD: Thuế sử dụng đất...' },
+              { label: 'Tên tài khoản thu (Loại đất)', key: 'name', placeholder: 'VD: ODT, Thuế đất...' },
               { label: 'Năm tính thuế', key: 'year', placeholder: 'VD: 2026' },
-              { label: 'Số tiền', key: 'amount', placeholder: 'VD: 1250000' },
+              { label: 'Số tiền tối thiểu', key: 'amount', placeholder: 'VD: 1000000' },
             ].map(f => (
               <div key={f.key} style={{ marginBottom: 14 }}>
                 <label style={{ fontSize: 13, fontWeight: 600, display: 'block', marginBottom: 5 }}>{f.label}</label>
@@ -304,7 +336,7 @@ const TaxPage = () => {
               <select value={adv.status} onChange={e => setAdv(a => ({ ...a, status: e.target.value }))}
                 style={{ width: '100%', padding: '9px 12px', border: '1px solid #e2e8f0', borderRadius: 8, fontSize: 13, outline: 'none' }}>
                 <option value="">Tất cả</option>
-                <option value="PENDING">Chưa trả</option>
+                <option value="UNPAID">Chưa thanh toán</option>
                 <option value="PAID">Đã hoàn thành</option>
                 <option value="OVERDUE">Quá hạn</option>
               </select>

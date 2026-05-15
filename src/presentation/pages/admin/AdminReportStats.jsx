@@ -25,7 +25,7 @@ const AdminReportStats = () => {
       const headers = { 'Authorization': `Bearer ${token}` };
 
       // Gọi API Lấy Thống kê
-      const statsRes = await fetch(`${baseUrl}/api/admin/statistics`, { headers });
+      const statsRes = await fetch(`${baseUrl}/api/admin/statistics/dashboard`, { headers });
       
       if (statsRes.ok) {
         const stats = await statsRes.json();

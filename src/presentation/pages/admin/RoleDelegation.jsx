@@ -27,45 +27,61 @@ const RoleDelegation = () => {
   }, []);
 
   const fetchData = async () => {
-    setIsLoading(true);
-    try {
-      const token = localStorage.getItem('token');
-      const headers = { 'Authorization': `Bearer ${token}` };
+  setIsLoading(true);
+  try {
+    const token = localStorage.getItem('token');
+    const headers = { 'Authorization': `Bearer ${token}` };
 
-      // GỌI API LẤY DANH SÁCH (Giả định endpoint vì trong list API của bạn chưa ghi rõ endpoint GET)
-      const [usersRes, delRes] = await Promise.all([
-        fetch(`${baseUrl}/api/admin/users`, { headers }).catch(() => null), // Fallback nếu chưa code API
-        fetch(`${baseUrl}/api/admin/delegations`, { headers }).catch(() => null)
+    // GỌI API LẤY DANH SÁCH
+    const [usersRes, delRes] = await Promise.all([
+      fetch(`${baseUrl}/api/admin/users`, { headers }),
+      fetch(`${baseUrl}/api/admin/delegations`, { headers })
+    ]);
+
+    // Kiểm tra API users
+    if (usersRes && usersRes.ok) {
+      const uData = await usersRes.json();
+      setUsers(uData.data || uData);
+      console.log("API users success:", uData);
+    } else {
+      console.log("API users failed or not ok, using mock data");
+      // MOCK DATA map theo bảng `accounts`, `citizens` và `roles`
+      setUsers([
+        { cccd_number: '001090000002', full_name: 'Trần Thị Bình', role_code: 'TAX_OFFICER', role_name: 'Cán bộ thuế', account_status: 'ACTIVE' },
+        { cccd_number: '001090000003', full_name: 'Lê Hoàng Cường', role_code: 'LAND_OFFICER', role_name: 'Cán bộ địa chính', account_status: 'ACTIVE' },
+        { cccd_number: '001190000101', full_name: 'Nguyễn Văn Anh', role_code: 'ADMIN', role_name: 'Quản trị hệ thống', account_status: 'ACTIVE' },
       ]);
-
-      if (usersRes && usersRes.ok) {
-        const uData = await usersRes.json();
-        setUsers(uData.data || uData);
-      } else {
-        // MOCK DATA map theo bảng `accounts`, `citizens` và `roles`
-        setUsers([
-          { cccd_number: '001090000002', full_name: 'Trần Thị Bình', role_code: 'TAX_OFFICER', role_name: 'Cán bộ thuế', account_status: 'ACTIVE' },
-          { cccd_number: '001090000003', full_name: 'Lê Hoàng Cường', role_code: 'LAND_OFFICER', role_name: 'Cán bộ địa chính', account_status: 'ACTIVE' },
-          { cccd_number: '001190000101', full_name: 'Nguyễn Văn Anh', role_code: 'ADMIN', role_name: 'Quản trị hệ thống', account_status: 'ACTIVE' },
-        ]);
-      }
-
-      if (delRes && delRes.ok) {
-        const dData = await delRes.json();
-        setDelegations(dData.data || dData);
-      } else {
-        // MOCK DATA map theo bảng `role_delegations`
-        setDelegations([
-          { delegation_id: 2, delegated_role_name: 'Cán bộ thuế (TAX_OFFICER)', delegator_name: 'Admin Hệ thống', delegatee_name: 'Trần Thị Bình', start_time: '2026-06-01 00:00:00', end_time: '2026-06-05 23:59:59', status: 'ACTIVE' },
-          { delegation_id: 4, delegated_role_name: 'Cán bộ địa chính (LAND_OFFICER)', delegator_name: 'Quản lý phòng ban', delegatee_name: 'Lê Hoàng Cường', start_time: '2026-08-01 00:00:00', end_time: '2026-08-10 23:59:59', status: 'EXPIRED' },
-        ]);
-      }
-    } catch (error) {
-      console.error("Lỗi khi lấy dữ liệu", error);
-    } finally {
-      setIsLoading(false);
     }
-  };
+
+    // Kiểm tra API delegations
+    if (delRes && delRes.ok) {
+      const dData = await delRes.json();
+      setDelegations(dData.data || dData);
+      console.log("API delegations success:", dData);
+    } else {
+      console.log("API delegations failed or not ok, using mock data");
+      // MOCK DATA map theo bảng `role_delegations`
+      setDelegations([
+        { delegation_id: 2, delegated_role_name: 'Cán bộ thuế (TAX_OFFICER)', delegator_name: 'Admin Hệ thống', delegatee_name: 'Trần Thị Bình', start_time: '2026-06-01 00:00:00', end_time: '2026-06-05 23:59:59', status: 'ACTIVE' },
+        { delegation_id: 4, delegated_role_name: 'Cán bộ địa chính (LAND_OFFICER)', delegator_name: 'Quản lý phòng ban', delegatee_name: 'Lê Hoàng Cường', start_time: '2026-08-01 00:00:00', end_time: '2026-08-10 23:59:59', status: 'EXPIRED' },
+      ]);
+    }
+  } catch (error) {
+    console.error("Lỗi khi lấy dữ liệu", error);
+    // Fallback: Set mock data on error
+    setUsers([
+      { cccd_number: '001090000002', full_name: 'Trần Thị Bình', role_code: 'TAX_OFFICER', role_name: 'Cán bộ thuế', account_status: 'ACTIVE' },
+      { cccd_number: '001090000003', full_name: 'Lê Hoàng Cường', role_code: 'LAND_OFFICER', role_name: 'Cán bộ địa chính', account_status: 'ACTIVE' },
+      { cccd_number: '001190000101', full_name: 'Nguyễn Văn Anh', role_code: 'ADMIN', role_name: 'Quản trị hệ thống', account_status: 'ACTIVE' },
+    ]);
+    setDelegations([
+      { delegation_id: 2, delegated_role_name: 'Cán bộ thuế (TAX_OFFICER)', delegator_name: 'Admin Hệ thống', delegatee_name: 'Trần Thị Bình', start_time: '2026-06-01 00:00:00', end_time: '2026-06-05 23:59:59', status: 'ACTIVE' },
+      { delegation_id: 4, delegated_role_name: 'Cán bộ địa chính (LAND_OFFICER)', delegator_name: 'Quản lý phòng ban', delegatee_name: 'Lê Hoàng Cường', start_time: '2026-08-01 00:00:00', end_time: '2026-08-10 23:59:59', status: 'EXPIRED' },
+    ]);
+  } finally {
+    setIsLoading(false);
+  }
+};
 
   // --- API: CẬP NHẬT PHÂN QUYỀN ---
   // Gọi API: PUT /api/admin/users/{cccd}/role
@@ -74,7 +90,7 @@ const RoleDelegation = () => {
     
     try {
       const token = localStorage.getItem('token');
-      const res = await fetch(`${baseUrl}/api/admin/users/${selectedUser.cccd_number}/role`, {
+      const res = await fetch(`${baseUrl}/api/admin/users/${selectedUser.cccdNumber}/role`, {
         method: 'PUT',
         headers: {
           'Authorization': `Bearer ${token}`,
@@ -127,7 +143,7 @@ const RoleDelegation = () => {
   // Handlers mở Modal
   const handleOpenRoleModal = (usr) => { 
     setSelectedUser(usr); 
-    setSelectedRoleCode(usr.role_code); // Set mặc định role hiện tại
+    setSelectedRoleCode(usr.role); // Set mặc định role hiện tại
     setIsRoleModalOpen(true); 
   };
   
@@ -184,22 +200,22 @@ const RoleDelegation = () => {
                       </thead>
                       <tbody>
                         {users.map((usr, idx) => (
-                          <tr key={usr.cccd_number} className={idx !== users.length - 1 ? "border-bottom" : ""}>
+                          <tr key={usr.cccdNumber || usr.cccd || usr.id || idx} className={idx !== users.length - 1 ? "border-bottom" : ""}>
                             <td className="py-3 px-4">
-                              <div className="fw-bold text-dark">{usr.full_name}</div>
-                              <div className="text-muted small font-monospace mt-1">{usr.cccd_number}</div>
+                              <div className="fw-bold text-dark">{usr.fullName}</div>
+                              <div className="text-muted small font-monospace mt-1">{usr.cccdNumber}</div>
                             </td>
                             <td className="py-3 px-4">
                               <span 
-                                className={`badge rounded-pill px-3 py-2 fw-semibold ${usr.role_code === 'TAX_OFFICER' ? 'bg-primary bg-opacity-10 text-primary' : (usr.role_code === 'LAND_OFFICER' ? 'bg-success bg-opacity-10 text-success' : 'bg-danger bg-opacity-10 text-danger')}`}
+                                className={`badge rounded-pill px-3 py-2 fw-semibold ${usr.role === 'TAX_OFFICER' ? 'bg-primary bg-opacity-10 text-primary' : (usr.role === 'LAND_OFFICER' ? 'bg-success bg-opacity-10 text-success' : 'bg-danger bg-opacity-10 text-danger')}`}
                               >
-                                {usr.role_name}
+                                {usr.role}
                               </span>
                             </td>
                             <td className="py-3 px-4">
                                <div className="d-flex align-items-center gap-2 small fw-semibold text-success">
                                 <div className="rounded-circle bg-success" style={{ width: '8px', height: '8px' }}></div>
-                                {usr.account_status}
+                                {usr.status}
                               </div>
                             </td>
                             <td className="py-3 px-4 text-end">
@@ -238,7 +254,7 @@ const RoleDelegation = () => {
                       </thead>
                       <tbody>
                         {delegations.map((del, idx) => (
-                          <tr key={del.delegation_id} className={idx !== delegations.length - 1 ? "border-bottom" : ""}>
+                          <tr key={del.delegation_id || del.id || idx} className={idx !== delegations.length - 1 ? "border-bottom" : ""}>
                             <td className="py-3 px-3">
                               <div className="fw-bold text-dark small font-monospace">DEL-{del.delegation_id}</div>
                               <div className="text-danger small mt-1 fw-semibold">{del.delegated_role_name}</div>

@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import LandTaxLayout from '../../components/LandTaxLayout';
+import { useUserInfo } from '../../../hooks/useUserInfo';
 
 const API_BASE = 'http://localhost:8080/api';
 
@@ -10,17 +11,19 @@ const getAuthHeaders = () => ({
 
 const LAND_TYPE_LABELS = {
   ODT: 'Đất ở tại đô thị',
-  CLN: 'Đất canh tác lâu năm',
+  ONT: 'Đất ở tại nông thôn',
+  LUC: 'Đất chuyên trồng lúa nước',
+  BHK: 'Đất bằng trồng cây hàng năm khác',
+  CLN: 'Đất trồng cây lâu năm',
+  RSX: 'Đất rừng sản xuất',
   NTS: 'Đất nuôi trồng thủy sản',
-  HNK: 'Đất hàng năm khác',
-  TMD: 'Đất thương mại',
-  SKC: 'Đất sản xuất kinh doanh',
-  DGD: 'Đất giáo dục',
-  DSN: 'Đất sản xuất',
+  SKC: 'Đất cơ sở sản xuất phi nông nghiệp',
+  TMD: 'Đất thương mại, dịch vụ',
+  DNL: 'Đất công trình năng lượng'
 };
 
-const InfoField = ({ label, value }) => (
-  <div style={{ marginBottom: 12 }}>
+const InfoField = ({ label, value, span = 1 }) => (
+  <div style={{ marginBottom: 12, gridColumn: span === 2 ? 'span 2' : 'auto' }}>
     <div style={{ fontSize: '13px', color: '#64748b', marginBottom: 2 }}>{label}</div>
     <div style={{ fontSize: '15px', color: '#0f172a', fontWeight: 500 }}>{value || '—'}</div>
   </div>
@@ -40,19 +43,20 @@ const LandInformationPage = () => {
   const jwtPayload = decodeJwt(token);
 
   const cccdNumber = jwtPayload?.cccdNumber || jwtPayload?.sub || userRaw?.cccdNumber || userRaw?.data?.cccdNumber || '';
-  const user = userRaw?.data || userRaw;
+  // const user = userRaw?.data || userRaw;
+  const { user } = useUserInfo();
 
   const [parcels, setParcels] = useState([]);
   const [filtered, setFiltered] = useState([]);
   const [search, setSearch] = useState('');
 
-  // Advanced Search
+  // Advanced Search mapped to DB fields
   const [showAdvanced, setShowAdvanced] = useState(false);
   const [advFilters, setAdvFilters] = useState({
-    certificateNumber: '',
-    parcelCode: '',
+    gcnBookNumber: '',
+    parcelNumber: '',
     mapSheetNumber: '',
-    landType: '',
+    landTypeCode: '',
     address: '',
   });
 
@@ -70,50 +74,50 @@ const LandInformationPage = () => {
   }, [cccdNumber]);
 
   const fetchParcels = async () => {
-  setLoading(true);
-  setError('');
+    setLoading(true);
+    setError('');
 
-  try {
-    const res = await fetch(
-      `${API_BASE}/land-parcels/my-assets`,
-      {
+    try {
+      const res = await fetch(`${API_BASE}/land-parcels/my-parcels`, {
         headers: getAuthHeaders(),
-      }
-    );
+      });
 
-    if (!res.ok) {
-      throw new Error(`HTTP ${res.status}`);
+      if (!res.ok) throw new Error(`HTTP ${res.status}`);
+
+      const json = await res.json();
+      const raw = Array.isArray(json) ? json : (json.data || []);
+
+      // Normalize Backend (camelCase or snake_case) -> Frontend
+      const data = raw.map(item => ({
+        ...item,
+        parcelId: item.landParcelId || item.land_parcel_id,
+        parcelNumber: item.parcelNumber || item.parcel_number,
+        mapSheetNumber: item.mapSheetNumber || item.map_sheet_number,
+        areaSize: item.areaSize || item.area_size,
+        usageDuration: item.usageDuration || item.usage_duration,
+        usageType: item.usageType || item.usage_type,
+        usageOrigin: item.usageOrigin || item.usage_origin,
+        address: item.address,
+        certificateNumber: item.certificateNumber || item.certificate_number,
+        gcnBookNumber: item.gcnBookNumber || item.gcn_book_number,
+        attachedHouse: item.attachedHouse || item.attached_house,
+        attachedOther: item.attachedOther || item.attached_other,
+        landInfoPdf: item.landInfoPdf || item.land_info_pdf,
+        notes: item.notes,
+        // Giả định backend trả về typeCode hoặc typeName (join với bảng land_types)
+        landTypeCode: item.typeCode || item.type_code || item.landTypeCode, 
+        landTypeName: item.typeName || item.type_name || item.landTypeName,
+      }));
+
+      setParcels(data);
+      setFiltered(data);
+    } catch (err) {
+      console.error(err);
+      setError(err.message || 'Lỗi kết nối server');
+    } finally {
+      setLoading(false);
     }
-
-    const json = await res.json();
-
-    const raw = Array.isArray(json)
-      ? json
-      : (json.data || []);
-
-    // normalize backend -> frontend
-    const data = raw.map(item => ({
-      ...item,
-
-      // alias cho frontend cũ
-      parcelId: item.landParcelId,
-      parcelCode: item.parcelNumber,
-      landType: item.landTypeId,
-      landTypeName: item.landTypeName,
-      
-      area: item.areaSize,
-    }));
-
-    setParcels(data);
-    setFiltered(data);
-
-  } catch (err) {
-    console.error(err);
-    setError(err.message || 'Lỗi kết nối server');
-  } finally {
-    setLoading(false);
-  }
-};
+  };
 
   // Apply all filters
   useEffect(() => {
@@ -122,22 +126,23 @@ const LandInformationPage = () => {
 
     if (search) {
       result = result.filter(p =>
-        (p.parcelCode || '').toLowerCase().includes(q) ||
-        (p.address || '').toLowerCase().includes(q)
+        (p.parcelNumber || '').toLowerCase().includes(q) ||
+        (p.address || '').toLowerCase().includes(q) ||
+        (p.gcnBookNumber || '').toLowerCase().includes(q)
       );
     }
 
-    if (advFilters.certificateNumber) {
-      result = result.filter(p => (p.certificateNumber || '').toLowerCase().includes(advFilters.certificateNumber.toLowerCase()));
+    if (advFilters.gcnBookNumber) {
+      result = result.filter(p => (p.gcnBookNumber || '').toLowerCase().includes(advFilters.gcnBookNumber.toLowerCase()));
     }
-    if (advFilters.parcelCode) {
-      result = result.filter(p => (p.parcelCode || '').toLowerCase().includes(advFilters.parcelCode.toLowerCase()));
+    if (advFilters.parcelNumber) {
+      result = result.filter(p => (p.parcelNumber || '').toLowerCase().includes(advFilters.parcelNumber.toLowerCase()));
     }
     if (advFilters.mapSheetNumber) {
       result = result.filter(p => (p.mapSheetNumber || '').toLowerCase().includes(advFilters.mapSheetNumber.toLowerCase()));
     }
-    if (advFilters.landType) {
-      result = result.filter(p => p.landType === advFilters.landType);
+    if (advFilters.landTypeCode) {
+      result = result.filter(p => p.landTypeCode === advFilters.landTypeCode);
     }
     if (advFilters.address) {
       result = result.filter(p => (p.address || '').toLowerCase().includes(advFilters.address.toLowerCase()));
@@ -150,10 +155,10 @@ const LandInformationPage = () => {
 
   const resetFilters = () => {
     setAdvFilters({
-      certificateNumber: '',
-      parcelCode: '',
+      gcnBookNumber: '',
+      parcelNumber: '',
       mapSheetNumber: '',
-      landType: '',
+      landTypeCode: '',
       address: '',
     });
     setSearch('');
@@ -174,7 +179,7 @@ const LandInformationPage = () => {
             <i className="bi bi-search" style={{ position: 'absolute', left: 14, top: '50%', transform: 'translateY(-50%)', color: '#94a3b8' }} />
             <input
               type="text"
-              placeholder="Tìm kiếm mã thửa, địa chỉ..."
+              placeholder="Tìm kiếm mã thửa, số GCN, địa chỉ..."
               value={search}
               onChange={(e) => setSearch(e.target.value)}
               style={{
@@ -230,11 +235,11 @@ const LandInformationPage = () => {
               <tr><td colSpan="6" style={{ textAlign: 'center', padding: '60px', color: '#94a3b8' }}>Không tìm thấy thửa đất nào</td></tr>
             ) : (
               filtered.map((p) => (
-                <tr key={p.parcelId || p.landParcelId} style={{ borderBottom: '1px solid #f1f5f9' }}>
-                  <td style={{ padding: '18px 20px', fontWeight: 600 }}>{p.certificateNumber || '—'}</td>
-                  <td style={{ padding: '18px 20px', fontWeight: 600 }}>{p.parcelCode || '—'}</td>
+                <tr key={p.parcelId} style={{ borderBottom: '1px solid #f1f5f9' }}>
+                  <td style={{ padding: '18px 20px', fontWeight: 600 }}>{p.gcnBookNumber || '—'}</td>
+                  <td style={{ padding: '18px 20px', fontWeight: 600 }}>{p.parcelNumber || '—'}</td>
                   <td style={{ padding: '18px 20px' }}>{p.mapSheetNumber || '—'}</td>
-                  <td style={{ padding: '18px 20px' }}>{p.landTypeName || getLandTypeLabel(p.landType)}</td>
+                  <td style={{ padding: '18px 20px' }}>{p.landTypeName || getLandTypeLabel(p.landTypeCode)}</td>
                   <td style={{ padding: '18px 20px', color: '#475569' }}>{p.address || '—'}</td>
                   <td style={{ padding: '18px 20px', textAlign: 'center' }}>
                     <button
@@ -283,38 +288,41 @@ const LandInformationPage = () => {
               <div style={{ marginBottom: 24 }}>
                 <h6 style={{ color: '#b91c1c', fontWeight: 700, marginBottom: 16 }}>THÔNG TIN THỬA ĐẤT</h6>
                 <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '20px 40px' }}>
-                  <InfoField label="Thửa đất số:" value={selected.parcelCode} />
+                  <InfoField label="Thửa đất số:" value={selected.parcelNumber} />
                   <InfoField label="Tờ bản đồ số:" value={selected.mapSheetNumber} />
-                  <InfoField label="Diện tích:" value={selected.area ? `${selected.area} m²` : '—'} />
-                  <InfoField label="Loại đất:" value={getLandTypeLabel(selected.landType)} />
-                  <InfoField label="Thời hạn sử dụng:" value="Lâu dài" />
-                  <InfoField label="Hình thức sử dụng:" value="Sử dụng riêng" />
+                  <InfoField label="Diện tích:" value={selected.areaSize ? `${selected.areaSize} m²` : '—'} />
+                  <InfoField label="Loại đất:" value={selected.landTypeName || getLandTypeLabel(selected.landTypeCode)} />
+                  <InfoField label="Thời hạn sử dụng:" value={selected.usageDuration} />
+                  <InfoField label="Hình thức sử dụng:" value={selected.usageType} />
                   <InfoField label="Địa chỉ:" value={selected.address} span={2} />
-                  <InfoField label="Nguồn gốc sử dụng:" value="Nhận chuyển nhượng đất được Nhà nước giao đất có thu tiền sử dụng đất" span={2} />
-                  <InfoField label="Số vào sổ cấp GCN:" value={selected.certificateNumber} />
+                  <InfoField label="Nguồn gốc sử dụng:" value={selected.usageOrigin} span={2} />
+                  <InfoField label="Số hiệu GCN (Seri):" value={selected.certificateNumber} />
+                  <InfoField label="Số vào sổ cấp GCN:" value={selected.gcnBookNumber} />
                 </div>
 
-                <div style={{ marginTop: 16 }}>
-                  <strong>File PDF thông tin đất đai:</strong>{' '}
-                  <button style={{ color: '#b91c1c', background: 'none', border: 'none', textDecoration: 'underline', cursor: 'pointer' }}>
-                    Xem file PDF
-                  </button>
-                </div>
+                {selected.landInfoPdf && (
+                  <div style={{ marginTop: 16 }}>
+                    <strong>File PDF thông tin gốc:</strong>{' '}
+                    <a href={selected.landInfoPdf} target="_blank" rel="noopener noreferrer" style={{ color: '#b91c1c', textDecoration: 'underline', fontWeight: 600 }}>
+                      Xem bản scan
+                    </a>
+                  </div>
+                )}
               </div>
 
               {/* Tài sản gắn liền */}
               <div style={{ marginBottom: 24 }}>
                 <h6 style={{ color: '#b91c1c', fontWeight: 700, marginBottom: 12 }}>TÀI SẢN GẮN LIỀN VỚI ĐẤT</h6>
                 <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 40 }}>
-                  <InfoField label="Nhà ở:" value="—" />
-                  <InfoField label="Công trình khác:" value="—" />
+                  <InfoField label="Nhà ở:" value={selected.attachedHouse} />
+                  <InfoField label="Công trình khác:" value={selected.attachedOther} />
                 </div>
               </div>
 
               {/* Ghi chú */}
               <div style={{ marginBottom: 24 }}>
                 <h6 style={{ color: '#b91c1c', fontWeight: 700, marginBottom: 12 }}>GHI CHÚ</h6>
-                <p style={{ color: '#64748b' }}>—</p>
+                <p style={{ color: '#64748b' }}>{selected.notes || '—'}</p>
               </div>
 
               {/* Sơ đồ thửa đất */}
@@ -322,40 +330,18 @@ const LandInformationPage = () => {
                 <h6 style={{ color: '#b91c1c', fontWeight: 700, marginBottom: 12 }}>SƠ ĐỒ THỬA ĐẤT, NHÀ Ở VÀ TÀI SẢN KHÁC</h6>
                 <div style={{ border: '2px dashed #cbd5e1', borderRadius: 8, height: 200, display: 'flex', alignItems: 'center', justifyContent: 'center', flexDirection: 'column', background: '#f8fafc' }}>
                   <i className="bi bi-map" style={{ fontSize: 50, color: '#94a3b8' }}></i>
-                  <p style={{ marginTop: 12, color: '#64748b' }}>Sơ đồ và bảng liệt kê tọa độ</p>
+                  <p style={{ marginTop: 12, color: '#64748b' }}>Bản vẽ được đính kèm trong hồ sơ scan</p>
                 </div>
-                <button style={{ marginTop: 12, color: '#b91c1c', background: 'none', border: 'none', textDecoration: 'underline' }}>
-                  Xem file PDF
-                </button>
-              </div>
-
-              {/* Những thay đổi sau cấp GCN */}
-              <div>
-                <h6 style={{ color: '#b91c1c', fontWeight: 700, marginBottom: 12 }}>NHỮNG THAY ĐỔI SAU KHI CẤP GCN</h6>
-                <table style={{ width: '100%', borderCollapse: 'collapse', border: '1px solid #e2e8f0' }}>
-                  <thead>
-                    <tr style={{ background: '#f8fafc' }}>
-                      <th style={{ padding: 14, textAlign: 'left', borderBottom: '1px solid #e2e8f0' }}>Nội dung thay đổi và cơ sở pháp lý</th>
-                      <th style={{ padding: 14, textAlign: 'left', borderBottom: '1px solid #e2e8f0' }}>Xác nhận cơ quan thẩm quyền</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    <tr>
-                      <td style={{ padding: 14, color: '#64748b' }}>Chưa có thông tin thay đổi</td>
-                      <td style={{ padding: 14, color: '#64748b' }}>—</td>
-                    </tr>
-                  </tbody>
-                </table>
               </div>
             </div>
 
             {/* Footer */}
             <div style={{ padding: '20px 28px', borderTop: '1px solid #e2e8f0', display: 'flex', justifyContent: 'flex-end', gap: 12, background: '#f8fafc' }}>
-              <button style={{ padding: '10px 24px', border: '1px solid #cbd5e1', borderRadius: 8, background: '#fff' }}>Tải về PDF</button>
-              <button style={{ padding: '10px 24px', background: '#f59e0b', color: '#fff', border: 'none', borderRadius: 8 }}>Khiếu nại</button>
+              <button style={{ padding: '10px 24px', border: '1px solid #cbd5e1', borderRadius: 8, background: '#fff', fontWeight: 600 }}>Tải về PDF</button>
+              <button style={{ padding: '10px 24px', background: '#f59e0b', color: '#fff', border: 'none', borderRadius: 8, fontWeight: 600 }}>Khiếu nại</button>
               <button
                 onClick={() => setSelected(null)}
-                style={{ padding: '10px 32px', background: '#b91c1c', color: '#fff', border: 'none', borderRadius: 8 }}
+                style={{ padding: '10px 32px', background: '#b91c1c', color: '#fff', border: 'none', borderRadius: 8, fontWeight: 600 }}
               >
                 Đóng
               </button>
@@ -386,8 +372,8 @@ const LandInformationPage = () => {
             <input
               type="text"
               placeholder="Nhập số vào sổ..."
-              value={advFilters.certificateNumber}
-              onChange={(e) => setAdvFilters({ ...advFilters, certificateNumber: e.target.value })}
+              value={advFilters.gcnBookNumber}
+              onChange={(e) => setAdvFilters({ ...advFilters, gcnBookNumber: e.target.value })}
               style={{ width: '100%', padding: '10px 12px', border: '1px solid #cbd5e1', borderRadius: 8, fontSize: 14 }}
             />
           </div>
@@ -397,8 +383,8 @@ const LandInformationPage = () => {
             <input
               type="text"
               placeholder="Nhập số thửa..."
-              value={advFilters.parcelCode}
-              onChange={(e) => setAdvFilters({ ...advFilters, parcelCode: e.target.value })}
+              value={advFilters.parcelNumber}
+              onChange={(e) => setAdvFilters({ ...advFilters, parcelNumber: e.target.value })}
               style={{ width: '100%', padding: '10px 12px', border: '1px solid #cbd5e1', borderRadius: 8, fontSize: 14 }}
             />
           </div>
@@ -417,8 +403,8 @@ const LandInformationPage = () => {
           <div style={{ marginBottom: 16 }}>
             <label style={{ fontSize: 13, color: '#64748b', display: 'block', marginBottom: 6 }}>Loại đất</label>
             <select
-              value={advFilters.landType}
-              onChange={(e) => setAdvFilters({ ...advFilters, landType: e.target.value })}
+              value={advFilters.landTypeCode}
+              onChange={(e) => setAdvFilters({ ...advFilters, landTypeCode: e.target.value })}
               style={{ width: '100%', padding: '10px 12px', border: '1px solid #cbd5e1', borderRadius: 8, fontSize: 14 }}
             >
               <option value="">Tất cả</option>

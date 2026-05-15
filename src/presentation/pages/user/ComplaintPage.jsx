@@ -1,15 +1,22 @@
 import React, { useState } from 'react';
 import LandTaxLayout from '../../components/LandTaxLayout';
+import { useUserInfo } from '../../../hooks/useUserInfo';
+
+const API_BASE = 'http://localhost:8080/api';
 
 const ComplaintPage = () => {
-  const user = JSON.parse(localStorage.getItem('user_info') || '{}');
+  const { user } = useUserInfo();
+  const userRaw = JSON.parse(localStorage.getItem('user_info') || '{}');
+  // const user = userRaw?.data || userRaw;
+  const [userInfo, setUserInfo] = useState(null);
 
+  // Cập nhật State cho khớp với các cột trong bảng `complaints`
   const [form, setForm] = useState({
-    complaintType: 'Khiếu nại về thuế đất đai',   // Loại khiếu nại mặc định
-    taxCode: '',                                  // Mã số thuế / mã biên lai
-    content: '',                                  // Nội dung chi tiết
-    file: null,                                   // File PDF biên lai
-    attachment: null,                             // Tài liệu đính kèm khác
+    title: 'Khiếu nại về thuế đất đai',           // Tương ứng với cột `title`
+    taxDeclarationId: '',                         // Tương ứng với cột `tax_declaration_id`
+    content: '',                                  // Tương ứng với cột `content`
+    file: null,                                   // (UI) File biên lai
+    attachment: null,                             // (UI) File đính kèm khác
   });
 
   const [loading, setLoading] = useState(false);
@@ -39,27 +46,36 @@ const ComplaintPage = () => {
     setError('');
 
     try {
-      // TODO: Gọi API thật sau khi backend có endpoint
-      // const formData = new FormData();
-      // formData.append('complaintType', form.complaintType);
-      // formData.append('taxCode', form.taxCode);
-      // formData.append('content', form.content);
-      // if (form.file) formData.append('file', form.file);
-      // if (form.attachment) formData.append('attachment', form.attachment);
+      const token = localStorage.getItem('token');
+      
+      // Xử lý làm sạch ID (Nếu user nhập "TK-001" thì chỉ lấy số 1 để lưu vào INT)
+      const cleanId = form.taxDeclarationId ? parseInt(form.taxDeclarationId.replace(/\D/g, ''), 10) : null;
 
-      // const res = await fetch('http://localhost:9090/api/complaints', {
-      //   method: 'POST',
-      //   headers: { Authorization: `Bearer ${localStorage.getItem('token')}` },
-      //   body: formData,
-      // });
+      // Map chuẩn dữ liệu gửi xuống Backend
+      const payload = {
+        title: form.title,
+        content: form.content,
+        taxDeclarationId: isNaN(cleanId) ? null : cleanId
+      };
 
-      // Giả lập thành công
-      await new Promise(resolve => setTimeout(resolve, 800));
+      const res = await fetch(`${API_BASE}/complaints`, {
+        method: 'POST',
+        headers: { 
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}` 
+        },
+        body: JSON.stringify(payload),
+      });
+
+      if (!res.ok) {
+        throw new Error('Gửi khiếu nại thất bại từ máy chủ.');
+      }
 
       setSuccess(true);
-      setForm({ complaintType: 'Khiếu nại về thuế đất đai', taxCode: '', content: '', file: null, attachment: null });
+      setForm({ title: 'Khiếu nại về thuế đất đai', taxDeclarationId: '', content: '', file: null, attachment: null });
 
     } catch (err) {
+      console.error(err);
       setError('Có lỗi xảy ra khi gửi khiếu nại. Vui lòng thử lại.');
     } finally {
       setLoading(false);
@@ -73,9 +89,10 @@ const ComplaintPage = () => {
         <div className="container py-5 text-center">
           <i className="bi bi-check-circle-fill text-success" style={{ fontSize: '80px' }}></i>
           <h3 className="mt-4 fw-bold">Khiếu nại đã được gửi thành công!</h3>
-          <p className="text-muted mt-3">Chúng tôi sẽ xử lý và phản hồi trong thời gian sớm nhất.</p>
+          <p className="text-muted mt-3">Cơ quan Thuế sẽ xử lý và phản hồi trong thời gian sớm nhất.</p>
           <button 
-            className="btn btn-danger mt-4 px-5"
+            className="btn btn-danger mt-4 px-5 fw-semibold"
+            style={{ borderRadius: '8px' }}
             onClick={() => setSuccess(false)}
           >
             Tạo khiếu nại mới
@@ -94,52 +111,51 @@ const ComplaintPage = () => {
         </div>
 
         <div className="card shadow-sm border-0" style={{ borderRadius: '16px' }}>
-          <div className="card-body p-5">
+          <div className="card-body p-4 p-md-5">
             <h5 className="fw-bold mb-4">Tạo khiếu nại mới</h5>
 
             <form onSubmit={handleSubmit}>
-              {/* Loại khiếu nại */}
+              {/* Tiêu đề / Loại khiếu nại (Cột title) */}
               <div className="mb-4">
-                <label className="form-label fw-semibold">Loại khiếu nại</label>
+                <label className="form-label fw-semibold">Loại khiếu nại (Tiêu đề)</label>
                 <select
-                  className="form-select"
-                  name="complaintType"
-                  value={form.complaintType}
+                  className="form-select bg-light border-0"
+                  name="title"
+                  value={form.title}
                   onChange={handleChange}
-                  style={{ padding: '12px' }}
+                  style={{ padding: '12px', borderRadius: '8px' }}
                 >
-                  <option value="Khiếu nại về thuế đất đai">Khiếu nại về thuế đất đai</option>
-                  <option value="Khiếu nại về hồ sơ khai báo">Khiếu nại về hồ sơ khai báo</option>
-                  <option value="Khiếu nại về quyết định hành chính">Khiếu nại về quyết định hành chính</option>
+                  <option value="Khiếu nại về thuế đất đai">Khiếu nại về số tiền thuế đất đai</option>
+                  <option value="Khiếu nại về hồ sơ khai báo">Khiếu nại về quá trình xử lý hồ sơ</option>
+                  <option value="Khiếu nại về quyết định hành chính">Khiếu nại về quyết định từ chối duyệt</option>
                   <option value="Phản ánh khác về đất đai">Phản ánh khác về đất đai</option>
                 </select>
               </div>
 
-              {/* Thông tin thuế đất đai khiếu nại */}
+              {/* ID Tờ khai (Cột tax_declaration_id) */}
               <div className="mb-4">
-                <label className="form-label fw-semibold">Thông tin thuế đất đai khiếu nại</label>
+                <label className="form-label fw-semibold">Mã Tờ khai / Biên lai liên quan</label>
                 <input
                   type="text"
-                  name="taxCode"
-                  className="form-control"
-                  placeholder="Nhập mã số thuế / mã biên lai..."
-                  value={form.taxCode}
+                  name="taxDeclarationId"
+                  className="form-control bg-light border-0"
+                  placeholder="Nhập ID (Ví dụ: TK-002, 15...)"
+                  value={form.taxDeclarationId}
                   onChange={handleChange}
-                  style={{ padding: '12px' }}
+                  style={{ padding: '12px', borderRadius: '8px' }}
                 />
               </div>
 
-              {/* File PDF biên lai / thông báo thuế */}
+              {/* File PDF biên lai (UI) */}
               <div className="mb-4">
                 <label className="form-label fw-semibold">File PDF biên lai / thông báo thuế</label>
                 <div 
-                  className="border border-dashed rounded-3 p-5 text-center"
+                  className="border border-dashed rounded-3 p-4 text-center bg-light"
                   style={{ borderColor: '#cbd5e1', cursor: 'pointer' }}
                   onClick={() => document.getElementById('fileInput').click()}
                 >
-                  <i className="bi bi-cloud-arrow-up" style={{ fontSize: '42px', color: '#94a3b8' }}></i>
-                  <p className="mt-3 mb-1 fw-medium">Tải lên file PDF</p>
-                  <small className="text-muted">Hỗ trợ định dạng PDF</small>
+                  <i className="bi bi-cloud-arrow-up" style={{ fontSize: '32px', color: '#94a3b8' }}></i>
+                  <p className="mt-2 mb-1 fw-medium text-dark">Tải lên file PDF</p>
                 </div>
                 <input
                   id="fileInput"
@@ -148,35 +164,35 @@ const ComplaintPage = () => {
                   className="d-none"
                   onChange={(e) => handleFileChange(e, 'file')}
                 />
-                {form.file && <small className="text-success mt-2 d-block">✓ Đã chọn: {form.file.name}</small>}
+                {form.file && <small className="text-success mt-2 d-block fw-semibold"><i className="bi bi-check-lg"></i> Đã chọn: {form.file.name}</small>}
               </div>
 
-              {/* Nội dung chi tiết */}
+              {/* Nội dung chi tiết (Cột content) */}
               <div className="mb-4">
-                <label className="form-label fw-semibold">Nội dung chi tiết</label>
+                <label className="form-label fw-semibold">Nội dung chi tiết <span className="text-danger">*</span></label>
                 <textarea
                   name="content"
-                  className="form-control"
+                  className="form-control bg-light border-0"
                   rows="5"
-                  placeholder="Nhập nội dung khiếu nại của bạn..."
+                  placeholder="Nhập chi tiết nội dung phản ánh của bạn..."
                   value={form.content}
                   onChange={handleChange}
                   required
-                  style={{ resize: 'vertical' }}
+                  style={{ resize: 'vertical', borderRadius: '8px', padding: '12px' }}
                 />
               </div>
 
-              {/* Tài liệu đính kèm khác */}
+              {/* Tài liệu đính kèm khác (UI) */}
               <div className="mb-4">
                 <label className="form-label fw-semibold">Tài liệu đính kèm khác (nếu có)</label>
                 <div 
-                  className="border border-dashed rounded-3 p-5 text-center"
+                  className="border border-dashed rounded-3 p-4 text-center bg-light"
                   style={{ borderColor: '#cbd5e1', cursor: 'pointer' }}
                   onClick={() => document.getElementById('attachmentInput').click()}
                 >
-                  <i className="bi bi-cloud-arrow-up" style={{ fontSize: '42px', color: '#94a3b8' }}></i>
-                  <p className="mt-3 mb-1 fw-medium">Nhấn để tải lên hoặc kéo thả file vào đây</p>
-                  <small className="text-muted">Hỗ trợ PDF, JPG, PNG (Tối đa 10MB)</small>
+                  <i className="bi bi-paperclip" style={{ fontSize: '32px', color: '#94a3b8' }}></i>
+                  <p className="mt-2 mb-1 fw-medium text-dark">Nhấn để tải lên file đính kèm</p>
+                  <small className="text-muted">Hỗ trợ PDF, JPG, PNG</small>
                 </div>
                 <input
                   id="attachmentInput"
@@ -185,18 +201,22 @@ const ComplaintPage = () => {
                   className="d-none"
                   onChange={(e) => handleFileChange(e, 'attachment')}
                 />
-                {form.attachment && <small className="text-success mt-2 d-block">✓ Đã chọn: {form.attachment.name}</small>}
+                {form.attachment && <small className="text-success mt-2 d-block fw-semibold"><i className="bi bi-check-lg"></i> Đã chọn: {form.attachment.name}</small>}
               </div>
 
-              {error && <div className="alert alert-danger mb-4">{error}</div>}
+              {error && <div className="alert alert-danger py-2 small mb-4">{error}</div>}
 
               <button
                 type="submit"
                 className="btn btn-danger w-100 py-3 fw-bold"
                 disabled={loading}
-                style={{ fontSize: '16px' }}
+                style={{ fontSize: '15px', borderRadius: '10px' }}
               >
-                {loading ? 'Đang gửi khiếu nại...' : 'Gửi khiếu nại'}
+                {loading ? (
+                  <><span className="spinner-border spinner-border-sm me-2"></span> Đang gửi khiếu nại...</>
+                ) : (
+                  'Gửi khiếu nại ngay'
+                )}
               </button>
             </form>
           </div>

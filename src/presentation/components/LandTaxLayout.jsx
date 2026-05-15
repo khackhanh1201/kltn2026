@@ -1,7 +1,13 @@
 import React, { useEffect, useState, useRef } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
 
-const LandTaxLayout = ({ children, user }) => {
+const LandTaxLayout = ({ children, user }) => { // Nếu đã truyền prop user thì dùng luôn
+  // Nếu chưa có prop user, hãy tự đọc từ localStorage:
+  const userInfoRaw = JSON.parse(localStorage.getItem('user_info') || '{}');
+  const currentUser = user || userInfoRaw?.data || userInfoRaw;
+  
+  // Lấy tên, nếu không có thì để mặc định
+  const displayName = currentUser?.fullName || currentUser?.full_name || 'Khách truy cập';
   const [isDropdownOpen, setIsDropdownOpen] = useState(false);
   const dropdownRef = useRef(null);
   const navigate = useNavigate();
@@ -42,7 +48,9 @@ const LandTaxLayout = ({ children, user }) => {
 
           <div className="d-flex align-items-center cursor-pointer" onClick={() => setIsDropdownOpen(!isDropdownOpen)}>
             <div className="me-3 text-end">
-              <div className="fw-bold text-uppercase" style={{ fontSize: '14px' }}>{user?.fullName || 'MAI NHƯ YẾN'}</div>
+              <div className="fw-bold text-uppercase" style={{ fontSize: '14px' }}>
+  {user?.fullName || user?.full_name || user?.data?.fullName || user?.data?.full_name || 'NGƯỜI DÙNG'}
+</div>
               <div style={{ fontSize: '11px' }} className="text-warning fw-bold">Định danh mức 2</div>
             </div>
             <div style={styles.avatarWrapper}>

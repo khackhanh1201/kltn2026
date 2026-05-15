@@ -28,6 +28,14 @@ import OperationHistory from './presentation/pages/admin/OperationHistory';
 import RoleDelegation from './presentation/pages/admin/RoleDelegation';
 import UserManagement from './presentation/pages/admin/UserManagement';
 
+// ==================== IMPORT CÁC TRANG TAX OFFICER ====================
+import TaxOfficerDashboard from './presentation/pages/tax-officer/TaxOfficerDashboard';
+import TaxProcessing from './presentation/pages/tax-officer/TaxProcessing';
+import PaymentManagement from './presentation/pages/tax-officer/PaymentManagement';
+import TaxRecords from './presentation/pages/tax-officer/TaxRecords';
+import ReportManagement from './presentation/pages/tax-officer/ReportManagement';
+import ComplaintManagement from './presentation/pages/tax-officer/ComplaintManagement';
+
 import 'bootstrap/dist/css/bootstrap.min.css';
 import 'bootstrap-icons/font/bootstrap-icons.css';
 import './index.css';
@@ -44,11 +52,15 @@ const ProtectedRoute = ({ children, allowedRoles }) => {
 
   // Nếu route có yêu cầu quyền cụ thể, mà người dùng không có quyền đó
   if (allowedRoles && !allowedRoles.includes(role)) {
-    // Admin đi lạc vào trang User -> Đẩy về trang Dashboard của Admin
+    // Admin đi lạc vào trang khác -> Đẩy về trang Dashboard của Admin
     if (role === 'ROLE_ADMIN') {
       return <Navigate to="/admin/dashboard" replace />;
     }
-    // User đi lạc vào trang Admin -> Đẩy về trang chủ User
+    // Tax Officer đi lạc vào trang khác -> Đẩy về trang Dashboard của Tax Officer
+    if (role === 'ROLE_TAX_OFFICER') {
+      return <Navigate to="/tax-officer/dashboard" replace />;
+    }
+    // User đi lạc vào trang khác -> Đẩy về trang chủ User
     return <Navigate to="/home" replace />;
   }
 
@@ -64,7 +76,9 @@ const AppRoutes = () => {
   const handleLoginSuccess = () => {
     const role = localStorage.getItem('role');
     if (role === 'ROLE_ADMIN') {
-      navigate('/admin/dashboard'); // Đổi trang mặc định của Admin thành Dashboard
+      navigate('/admin/dashboard');
+    } else if (role === 'ROLE_TAX_OFFICER') {
+      navigate('/tax-officer/dashboard');
     } else {
       navigate('/home');
     }
@@ -124,6 +138,56 @@ const AppRoutes = () => {
         element={
           <ProtectedRoute allowedRoles={['ROLE_ADMIN']}>
             <UserManagement />
+          </ProtectedRoute>
+        } 
+      />
+
+      {/* ==================== PROTECTED TAX OFFICER ==================== */}
+      <Route 
+        path="/tax-officer/dashboard" 
+        element={
+          <ProtectedRoute allowedRoles={['ROLE_TAX_OFFICER']}>
+            <TaxOfficerDashboard />
+          </ProtectedRoute>
+        } 
+      />
+      <Route 
+        path="/tax-officer/process-tax" 
+        element={
+          <ProtectedRoute allowedRoles={['ROLE_TAX_OFFICER']}>
+            <TaxProcessing />
+          </ProtectedRoute>
+        } 
+      />
+      <Route 
+        path="/tax-officer/payments" 
+        element={
+          <ProtectedRoute allowedRoles={['ROLE_TAX_OFFICER']}>
+            <PaymentManagement />
+          </ProtectedRoute>
+        } 
+      />
+      <Route 
+        path="/tax-officer/tax-records" 
+        element={
+          <ProtectedRoute allowedRoles={['ROLE_TAX_OFFICER']}>
+            <TaxRecords />
+          </ProtectedRoute>
+        } 
+      />
+      <Route 
+        path="/tax-officer/reports" 
+        element={
+          <ProtectedRoute allowedRoles={['ROLE_TAX_OFFICER']}>
+            <ReportManagement />
+          </ProtectedRoute>
+        } 
+      />
+      <Route 
+        path="/tax-officer/complaints" 
+        element={
+          <ProtectedRoute allowedRoles={['ROLE_TAX_OFFICER']}>
+            <ComplaintManagement />
           </ProtectedRoute>
         } 
       />
@@ -216,7 +280,9 @@ const AppRoutes = () => {
         element={
           localStorage.getItem('token') 
             ? (localStorage.getItem('role') === 'ROLE_ADMIN' 
-                ? <Navigate to="/admin/dashboard" replace /> 
+                ? <Navigate to="/admin/dashboard" replace />
+                : localStorage.getItem('role') === 'ROLE_TAX_OFFICER'
+                ? <Navigate to="/tax-officer/dashboard" replace />
                 : <Navigate to="/home" replace />)
             : <Navigate to="/" replace />
         }

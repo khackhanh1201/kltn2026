@@ -1,8 +1,8 @@
 import React, { useState } from 'react';
-import LandTaxLayout from '../../components/LandTaxLayout';
-
+import LandTaxLayout from '../../components/TaxOfficerLayout';
+import { useUserInfo } from '../../../hooks/useUserInfo';
 const ReportManagement = () => {
-  const user = JSON.parse(localStorage.getItem('user_info') || '{}');
+  const { user } = useUserInfo();
   const [view, setView] = useState('overview'); // 'overview' | 'create'
 
   // ================= VIEW: TỔNG QUÁT HỆ THỐNG =================

@@ -16,11 +16,10 @@ const AccountPage = () => {
   const fetchUserInfo = async () => {
   try {
     setLoading(true);
-
-    // THÊM DÒNG NÀY
     const token = localStorage.getItem('token');
 
-    const res = await fetch('http://localhost:8080/api/profile/sync', {
+    // Bước 1: Sync từ VNeID
+    await fetch('http://localhost:8080/api/profile/sync', {
       method: 'POST',
       headers: {
         Authorization: `Bearer ${token}`,
@@ -28,30 +27,33 @@ const AccountPage = () => {
       },
     });
 
-    if (!res.ok) {
-      throw new Error('Không thể lấy thông tin tài khoản');
-    }
+    // Bước 2: Lấy profile
+    const res = await fetch('http://localhost:8080/api/profile', {
+      method: 'GET',
+      headers: {
+        Authorization: `Bearer ${token}`,
+        'Content-Type': 'application/json',
+      },
+    });
 
-    const json = await res.json();
+    if (!res.ok) throw new Error('Không thể lấy thông tin tài khoản');
 
-    const userData = json.profile || json.data || json;
+    const userData = await res.json();
 
     setUserInfo({
       fullName: userData.fullName || userData.name || 'Nguyễn Quốc Việt',
       citizenId: userData.cccdNumber || userData.citizenId || '079xxxxxxxxx',
       phone: userData.phone || userData.phoneNumber || '090xxxxxxxx',
       email: userData.email || 'viet.ng@example.com',
-      address: userData.address || 'TP.HCM',
+      address: userData.address || userData.provinceCity || 'TP.HCM',
       dob: userData.dateOfBirth
         ? new Date(userData.dateOfBirth).toLocaleDateString('vi-VN')
-        : userData.dob
-        ? new Date(userData.dob).toLocaleDateString('vi-VN')
         : '15/05/1990',
       avatarInitial: (userData.fullName || 'V')[0].toUpperCase(),
     });
-
   } catch (err) {
     console.error(err);
+    setError(err.message);
   } finally {
     setLoading(false);
   }

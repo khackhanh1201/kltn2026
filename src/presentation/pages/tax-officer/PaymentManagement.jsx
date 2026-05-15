@@ -1,9 +1,8 @@
 import React, { useState } from 'react';
-import LandTaxLayout from '../../components/LandTaxLayout';
-
+import LandTaxLayout from '../../components/TaxOfficerLayout';
+import { useUserInfo } from '../../../hooks/useUserInfo';
 const PaymentManagement = () => {
-  const user = JSON.parse(localStorage.getItem('user_info') || '{}');
-  
+  const { user } = useUserInfo();  
   // Trạng thái điều hướng giao diện
   const [view, setView] = useState('list'); // 'list', 'recon_upload', 'recon_result'
   const [activeTab, setActiveTab] = useState('Tất cả');

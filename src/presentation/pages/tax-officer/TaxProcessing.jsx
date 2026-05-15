@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
-import LandTaxLayout from '../../components/LandTaxLayout';
-// Giả sử bạn dùng react-router-dom để điều hướng
+import LandTaxLayout from '../../components/TaxOfficerLayout';
+import { useUserInfo } from '../../../hooks/useUserInfo';// Giả sử bạn dùng react-router-dom để điều hướng
 // import { useNavigate } from 'react-router-dom'; 
 
 const MOCK_DATA = [
@@ -13,8 +13,8 @@ const MOCK_DATA = [
 ];
 
 const TaxProcessing = () => {
-  const user = JSON.parse(localStorage.getItem('user_info') || '{}');
-  // const navigate = useNavigate(); // Hook điều hướng
+  const { user } = useUserInfo();
+ // const navigate = useNavigate(); // Hook điều hướng
 
   const [activeTab, setActiveTab] = useState('ALL'); 
   const [riskFilter, setRiskFilter] = useState('normal'); 

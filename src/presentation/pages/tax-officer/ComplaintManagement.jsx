@@ -1,9 +1,8 @@
 import React, { useState } from 'react';
-import LandTaxLayout from '../../components/LandTaxLayout';
-
+import LandTaxLayout from '../../components/TaxOfficerLayout';
+import { useUserInfo } from '../../../hooks/useUserInfo';
 const ComplaintManagement = () => {
-  const user = JSON.parse(localStorage.getItem('user_info') || '{}');
-  
+  const { user } = useUserInfo();  
   // Navigation State
   const [view, setView] = useState('list'); // 'list' | 'detail'
   

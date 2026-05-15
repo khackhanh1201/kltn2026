@@ -1,9 +1,10 @@
 import React, { useState, useEffect } from 'react';
 import AdminLayout from '../../components/AdminLayout';
+import { useUserInfo } from '../../../hooks/useUserInfo';
 
 const AdminDashboard = () => {
   const user = JSON.parse(localStorage.getItem('user_info') || '{}');
-  
+  const { userInfo } = useUserInfo();
   // State quản lý UI
   const [activeTab, setActiveTab] = useState('system');
   const [isLoading, setIsLoading] = useState(true);
@@ -45,7 +46,7 @@ const AdminDashboard = () => {
 
       // Gọi đồng thời 2 API
       const [statsRes, logsRes] = await Promise.all([
-        fetch(`${baseUrl}/api/admin/statistics`, { headers }),
+        fetch(`${baseUrl}/api/admin/statistics/dashboard`, { headers }),
         fetch(`${baseUrl}/api/admin/audit-logs`, { headers })
       ]);
 
