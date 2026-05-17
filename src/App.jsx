@@ -36,6 +36,9 @@ import TaxRecords from './presentation/pages/tax-officer/TaxRecords';
 import ReportManagement from './presentation/pages/tax-officer/ReportManagement';
 import ComplaintManagement from './presentation/pages/tax-officer/ComplaintManagement';
 
+// ==================== IMPORT CÁC TRANG LAND OFFICER ====================
+import LandOfficerDashboard from './presentation/pages/cadastral-officer/CadastralDashboard';
+
 import 'bootstrap/dist/css/bootstrap.min.css';
 import 'bootstrap-icons/font/bootstrap-icons.css';
 import './index.css';
@@ -79,6 +82,8 @@ const AppRoutes = () => {
       navigate('/admin/dashboard');
     } else if (role === 'ROLE_TAX_OFFICER') {
       navigate('/tax-officer/dashboard');
+    } else if (role === 'ROLE_LAND_OFFICER') {
+    navigate('/cadastral-officer/dashboard');
     } else {
       navigate('/home');
     }
@@ -152,7 +157,7 @@ const AppRoutes = () => {
         } 
       />
       <Route 
-        path="/tax-officer/process-tax" 
+        path="/tax-officer/tax-processing" 
         element={
           <ProtectedRoute allowedRoles={['ROLE_TAX_OFFICER']}>
             <TaxProcessing />
@@ -160,7 +165,7 @@ const AppRoutes = () => {
         } 
       />
       <Route 
-        path="/tax-officer/payments" 
+        path="/tax-officer/payment-management" 
         element={
           <ProtectedRoute allowedRoles={['ROLE_TAX_OFFICER']}>
             <PaymentManagement />
@@ -176,7 +181,7 @@ const AppRoutes = () => {
         } 
       />
       <Route 
-        path="/tax-officer/reports" 
+        path="/tax-officer/report-management" 
         element={
           <ProtectedRoute allowedRoles={['ROLE_TAX_OFFICER']}>
             <ReportManagement />
@@ -184,7 +189,7 @@ const AppRoutes = () => {
         } 
       />
       <Route 
-        path="/tax-officer/complaints" 
+        path="/tax-officer/complaint-management" 
         element={
           <ProtectedRoute allowedRoles={['ROLE_TAX_OFFICER']}>
             <ComplaintManagement />
@@ -274,6 +279,16 @@ const AppRoutes = () => {
         } 
       />
 
+      {/* ==================== PROTECTED LAND OFFICER ==================== */}
+      <Route 
+        path="/cadastral-officer/dashboard" 
+        element={
+          <ProtectedRoute allowedRoles={['ROLE_LAND_OFFICER']}>
+            <LandOfficerDashboard />
+          </ProtectedRoute>
+        } 
+      />
+
       {/* ==================== FALLBACK ROUTE ==================== */}
       <Route
         path="*"
@@ -283,6 +298,8 @@ const AppRoutes = () => {
                 ? <Navigate to="/admin/dashboard" replace />
                 : localStorage.getItem('role') === 'ROLE_TAX_OFFICER'
                 ? <Navigate to="/tax-officer/dashboard" replace />
+                : localStorage.getItem('role') === 'ROLE_LAND_OFFICER'
+                ? <Navigate to="/cadastral-officer/dashboard" replace />
                 : <Navigate to="/home" replace />)
             : <Navigate to="/" replace />
         }

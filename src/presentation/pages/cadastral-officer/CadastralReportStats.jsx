@@ -1,7 +1,5 @@
 import React, { useState } from 'react';
-// Giả định bạn có component Layout
-// import CadastralLayout from '../../components/CadastralLayout'; 
-
+import CadastralOfficerLayout from '../../components/CadastralLayout';
 // --- MOCK DATA ---
 const MOCK_TABLE_DATA = [
   { id: 1, unit: 'Thanh Liệt', total: 450, resolved: 420, pending: 30, rate: 93 },

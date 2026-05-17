@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import LandTaxLayout from '../../components/TaxOfficerLayout';
+import TaxOfficerLayout from '../../components/TaxOfficerLayout';
 import { useUserInfo } from '../../../hooks/useUserInfo';
 const API_BASE = 'http://localhost:8080/api';
 
@@ -171,7 +171,7 @@ const fetchDeclarationDetail = async (record) => {
   };
 
   return (
-    <LandTaxLayout user={user}>
+    <TaxOfficerLayout user={user}>
       <div style={{ padding: '20px 30px' }}>
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 24 }}>
           <div>
@@ -534,7 +534,7 @@ const fetchDeclarationDetail = async (record) => {
           </div>
         )}
       </div>
-    </LandTaxLayout>
+    </TaxOfficerLayout>
   );
 };
 

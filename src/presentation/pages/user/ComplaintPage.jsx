@@ -1,9 +1,15 @@
 import React, { useState, useEffect } from 'react';
 import LandTaxLayout from '../../components/LandTaxLayout';
 import { useUserInfo } from '../../../hooks/useUserInfo';
+import { userApi } from '../../../infrastructure/api/userApi';
 
 const API_BASE = 'http://localhost:8080/api';
-
+const STATUS_MAP = {
+  'PENDING': { label: 'Chờ xử lý', bg: '#fef3c7', color: '#d97706' },     // Màu vàng
+  'PROCESSING': { label: 'Đang xử lý', bg: '#dbeafe', color: '#2563eb' },  // Màu xanh dương
+  'RESOLVED': { label: 'Đã giải quyết', bg: '#dcfce7', color: '#16a34a' }, // Màu xanh lá
+  'REJECTED': { label: 'Từ chối', bg: '#fee2e2', color: '#dc2626' },     // Màu đỏ
+};
 const ComplaintPage = () => {
   const { user } = useUserInfo();
   const userRaw = JSON.parse(localStorage.getItem('user_info') || '{}');

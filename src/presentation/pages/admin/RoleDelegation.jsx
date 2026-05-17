@@ -1,9 +1,10 @@
 import React, { useState, useEffect } from 'react';
 import AdminLayout from '../../components/AdminLayout';
+// Import adminApi từ hạ tầng API (Named Export)
+import { adminApi } from '../../../infrastructure/api/adminApi';
 
 const RoleDelegation = () => {
   const user = JSON.parse(localStorage.getItem('user_info') || '{}');
-  const baseUrl = 'http://localhost:8080'; // Thay bằng URL Backend của bạn
 
   const [activeTab, setActiveTab] = useState('roles'); 
   const [isLoading, setIsLoading] = useState(false);
@@ -27,100 +28,82 @@ const RoleDelegation = () => {
   }, []);
 
   const fetchData = async () => {
-  setIsLoading(true);
-  try {
-    const token = localStorage.getItem('token');
-    const headers = { 'Authorization': `Bearer ${token}` };
+    setIsLoading(true);
+    try {
+      // GỌI API ĐỒNG THỜI QUA ADMIN_API (Tự động giải nén dữ liệu và đính kèm token)
+      const [usersData, delegationsData] = await Promise.all([
+        adminApi.getUsers(),
+        adminApi.getAdminDelegations()
+      ]);
 
-    // GỌI API LẤY DANH SÁCH
-    const [usersRes, delRes] = await Promise.all([
-      fetch(`${baseUrl}/api/admin/users`, { headers }),
-      fetch(`${baseUrl}/api/admin/delegations`, { headers })
-    ]);
+      // Xử lý dữ liệu users
+      if (usersData) {
+        const uList = usersData?.data || usersData;
+        setUsers(uList);
+      } else {
+        // Fallback sang dữ liệu mẫu cũ nếu API thành công nhưng rỗng
+        setUsers([
+          { cccd_number: '001090000002', full_name: 'Trần Thị Bình', role_code: 'TAX_OFFICER', role_name: 'Cán bộ thuế', account_status: 'ACTIVE' },
+          { cccd_number: '001090000003', full_name: 'Lê Hoàng Cường', role_code: 'LAND_OFFICER', role_name: 'Cán bộ địa chính', account_status: 'ACTIVE' },
+          { cccd_number: '001190000101', full_name: 'Nguyễn Văn Anh', role_code: 'ADMIN', role_name: 'Quản trị hệ thống', account_status: 'ACTIVE' },
+        ]);
+      }
 
-    // Kiểm tra API users
-    if (usersRes && usersRes.ok) {
-      const uData = await usersRes.json();
-      setUsers(uData.data || uData);
-      console.log("API users success:", uData);
-    } else {
-      console.log("API users failed or not ok, using mock data");
-      // MOCK DATA map theo bảng `accounts`, `citizens` và `roles`
+      // Xử lý dữ liệu ủy quyền (delegations)
+      if (delegationsData) {
+        const dList = delegationsData?.data || delegationsData;
+        setDelegations(dList);
+      } else {
+        // Fallback sang dữ liệu mẫu cũ
+        setDelegations([
+          { delegation_id: 2, delegated_role_name: 'Cán bộ thuế (TAX_OFFICER)', delegator_name: 'Admin Hệ thống', delegatee_name: 'Trần Thị Bình', start_time: '2026-06-01 00:00:00', end_time: '2026-06-05 23:59:59', status: 'ACTIVE' },
+          { delegation_id: 4, delegated_role_name: 'Cán bộ địa chính (LAND_OFFICER)', delegator_name: 'Quản lý phòng ban', delegatee_name: 'Lê Hoàng Cường', start_time: '2026-08-01 00:00:00', end_time: '2026-08-10 23:59:59', status: 'EXPIRED' },
+        ]);
+      }
+
+    } catch (error) {
+      console.error("Lỗi khi lấy dữ liệu cấu hình quyền:", error);
+      // Fallback khi lỗi mạng
       setUsers([
         { cccd_number: '001090000002', full_name: 'Trần Thị Bình', role_code: 'TAX_OFFICER', role_name: 'Cán bộ thuế', account_status: 'ACTIVE' },
         { cccd_number: '001090000003', full_name: 'Lê Hoàng Cường', role_code: 'LAND_OFFICER', role_name: 'Cán bộ địa chính', account_status: 'ACTIVE' },
         { cccd_number: '001190000101', full_name: 'Nguyễn Văn Anh', role_code: 'ADMIN', role_name: 'Quản trị hệ thống', account_status: 'ACTIVE' },
       ]);
-    }
-
-    // Kiểm tra API delegations
-    if (delRes && delRes.ok) {
-      const dData = await delRes.json();
-      setDelegations(dData.data || dData);
-      console.log("API delegations success:", dData);
-    } else {
-      console.log("API delegations failed or not ok, using mock data");
-      // MOCK DATA map theo bảng `role_delegations`
       setDelegations([
         { delegation_id: 2, delegated_role_name: 'Cán bộ thuế (TAX_OFFICER)', delegator_name: 'Admin Hệ thống', delegatee_name: 'Trần Thị Bình', start_time: '2026-06-01 00:00:00', end_time: '2026-06-05 23:59:59', status: 'ACTIVE' },
         { delegation_id: 4, delegated_role_name: 'Cán bộ địa chính (LAND_OFFICER)', delegator_name: 'Quản lý phòng ban', delegatee_name: 'Lê Hoàng Cường', start_time: '2026-08-01 00:00:00', end_time: '2026-08-10 23:59:59', status: 'EXPIRED' },
       ]);
+    } finally {
+      setIsLoading(false);
     }
-  } catch (error) {
-    console.error("Lỗi khi lấy dữ liệu", error);
-    // Fallback: Set mock data on error
-    setUsers([
-      { cccd_number: '001090000002', full_name: 'Trần Thị Bình', role_code: 'TAX_OFFICER', role_name: 'Cán bộ thuế', account_status: 'ACTIVE' },
-      { cccd_number: '001090000003', full_name: 'Lê Hoàng Cường', role_code: 'LAND_OFFICER', role_name: 'Cán bộ địa chính', account_status: 'ACTIVE' },
-      { cccd_number: '001190000101', full_name: 'Nguyễn Văn Anh', role_code: 'ADMIN', role_name: 'Quản trị hệ thống', account_status: 'ACTIVE' },
-    ]);
-    setDelegations([
-      { delegation_id: 2, delegated_role_name: 'Cán bộ thuế (TAX_OFFICER)', delegator_name: 'Admin Hệ thống', delegatee_name: 'Trần Thị Bình', start_time: '2026-06-01 00:00:00', end_time: '2026-06-05 23:59:59', status: 'ACTIVE' },
-      { delegation_id: 4, delegated_role_name: 'Cán bộ địa chính (LAND_OFFICER)', delegator_name: 'Quản lý phòng ban', delegatee_name: 'Lê Hoàng Cường', start_time: '2026-08-01 00:00:00', end_time: '2026-08-10 23:59:59', status: 'EXPIRED' },
-    ]);
-  } finally {
-    setIsLoading(false);
-  }
-};
+  };
 
-  // --- API: CẬP NHẬT PHÂN QUYỀN ---
-  // Gọi API: PUT /api/admin/users/{cccd}/role
+  // --- API: CẬP NHẬT PHÂN QUYỀN QUA ADMIN_API ---
   const handleSaveRole = async () => {
     if (!selectedUser || !selectedRoleCode) return;
     
     try {
-      const token = localStorage.getItem('token');
-      const res = await fetch(`${baseUrl}/api/admin/users/${selectedUser.cccdNumber}/role`, {
-        method: 'PUT',
-        headers: {
-          'Authorization': `Bearer ${token}`,
-          'Content-Type': 'application/json'
-        },
-        body: JSON.stringify({ roleCode: selectedRoleCode })
-      });
-
-      if (res.ok) {
-        alert('Cập nhật quyền hạn thành công!');
-        fetchData(); // Tải lại danh sách
-      } else {
-        alert('Có lỗi xảy ra khi cập nhật quyền');
-      }
+      // Gọi hàm updateUserRole tập trung từ file cấu hình của ông
+      await adminApi.updateUserRole(selectedUser.cccdNumber || selectedUser.cccd_number, { roleCode: selectedRoleCode });
+      alert('Cập nhật quyền hạn thành công!');
+      fetchData(); 
     } catch (err) {
-      alert('Lỗi kết nối mạng!');
+      console.error("Lỗi lưu quyền hạn:", err);
+      alert(err.message || 'Có lỗi xảy ra khi cập nhật quyền');
     } finally {
       setIsRoleModalOpen(false);
     }
   };
 
-  // --- API: THU HỒI ỦY QUYỀN ---
-  // Giả định dùng POST hoặc PUT thay đổi trạng thái delegation
+  // --- API: THU HỒI ỦY QUYỀN QUA ADMIN_API ---
   const handleConfirmRevoke = async () => {
     if (!selectedDelegation) return;
 
     try {
+      // Sử dụng hàm resolveComplaint hoặc điều hướng endpoint qua adminApi nếu có cấu trúc động.
+      // Dưới đây giữ nguyên cấu trúc gọi cập nhật trạng thái nếu API có sẵn, hoặc dùng Fetch cục bộ dựa trên URL chuẩn:
       const token = localStorage.getItem('token');
-      // Tùy theo BE của bạn thiết kế, ví dụ dùng PUT đổi status sang INACTIVE
-      const res = await fetch(`${baseUrl}/api/admin/delegations/${selectedDelegation.delegation_id}/revoke`, {
+      const res = await fetch(`http://localhost:8080/api/admin/delegations/${selectedDelegation.delegation_id}/revoke`, {
         method: 'PUT',
         headers: { 'Authorization': `Bearer ${token}` }
       });
@@ -129,11 +112,12 @@ const RoleDelegation = () => {
         alert('Thu hồi quyền thành công!');
         fetchData(); 
       } else {
-        // Fallback fake UI update nếu API chưa có sẵn
+        // Giữ nguyên fallback mô phỏng giao diện cũ của ông nếu API thật chưa tích hợp tính năng này
         setDelegations(delegations.map(d => d.delegation_id === selectedDelegation.delegation_id ? { ...d, status: 'INACTIVE' } : d));
         alert('Thu hồi quyền thành công (Mô phỏng)!');
       }
     } catch (err) {
+      console.error(err);
       alert('Lỗi kết nối mạng!');
     } finally {
       setIsRevokeModalOpen(false);
@@ -143,7 +127,7 @@ const RoleDelegation = () => {
   // Handlers mở Modal
   const handleOpenRoleModal = (usr) => { 
     setSelectedUser(usr); 
-    setSelectedRoleCode(usr.role); // Set mặc định role hiện tại
+    setSelectedRoleCode(usr.role || usr.role_code); // Set mặc định role hiện tại linh hoạt theo DB
     setIsRoleModalOpen(true); 
   };
   
@@ -200,26 +184,25 @@ const RoleDelegation = () => {
                       </thead>
                       <tbody>
                         {users.map((usr, idx) => (
-                          <tr key={usr.cccdNumber || usr.cccd || usr.id || idx} className={idx !== users.length - 1 ? "border-bottom" : ""}>
+                          <tr key={usr.cccdNumber || usr.cccd_number || usr.cccd || usr.id || idx} className={idx !== users.length - 1 ? "border-bottom" : ""}>
                             <td className="py-3 px-4">
-                              <div className="fw-bold text-dark">{usr.fullName}</div>
-                              <div className="text-muted small font-monospace mt-1">{usr.cccdNumber}</div>
+                              <div className="fw-bold text-dark">{usr.fullName || usr.full_name}</div>
+                              <div className="text-muted small font-monospace mt-1">{usr.cccdNumber || usr.cccd_number}</div>
                             </td>
                             <td className="py-3 px-4">
                               <span 
-                                className={`badge rounded-pill px-3 py-2 fw-semibold ${usr.role === 'TAX_OFFICER' ? 'bg-primary bg-opacity-10 text-primary' : (usr.role === 'LAND_OFFICER' ? 'bg-success bg-opacity-10 text-success' : 'bg-danger bg-opacity-10 text-danger')}`}
+                                className={`badge rounded-pill px-3 py-2 fw-semibold ${usr.role === 'TAX_OFFICER' || usr.role_code === 'TAX_OFFICER' ? 'bg-primary bg-opacity-10 text-primary' : (usr.role === 'LAND_OFFICER' || usr.role_code === 'LAND_OFFICER' ? 'bg-success bg-opacity-10 text-success' : 'bg-danger bg-opacity-10 text-danger')}`}
                               >
-                                {usr.role}
+                                {usr.role || usr.role_code || usr.role_name}
                               </span>
                             </td>
                             <td className="py-3 px-4">
                                <div className="d-flex align-items-center gap-2 small fw-semibold text-success">
                                 <div className="rounded-circle bg-success" style={{ width: '8px', height: '8px' }}></div>
-                                {usr.status}
+                                {usr.status || usr.account_status}
                               </div>
                             </td>
                             <td className="py-3 px-4 text-end">
-                              {/* NÚT THIẾT LẬP QUYỀN ĐÃ ĐƯỢC STYLE GIỐNG NÚT PHÂN HỆ THUẾ */}
                               <button 
                                 className="btn bg-primary bg-opacity-10 text-primary rounded-pill fw-semibold px-4 py-2 border-0" 
                                 style={{ fontSize: '13px' }}
@@ -289,7 +272,7 @@ const RoleDelegation = () => {
           )}
         </div>
 
-        {/* --- MODAL: CẬP NHẬT QUYỀN HẠN (Sử dụng API PUT) --- */}
+        {/* --- MODAL: CẬP NHẬT QUYỀN HẠN --- */}
         {isRoleModalOpen && selectedUser && (
           <div className="modal-overlay d-flex align-items-center justify-content-center" style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, backgroundColor: 'rgba(15, 23, 42, 0.6)', zIndex: 1050 }}>
             <div className="card border-0 shadow-lg" style={{ width: '100%', maxWidth: '550px', borderRadius: '16px', overflow: 'hidden' }}>
@@ -309,8 +292,8 @@ const RoleDelegation = () => {
                     <i className="bi bi-person"></i>
                   </div>
                   <div>
-                    <div className="fw-bold text-dark" style={{ fontSize: '16px' }}>{selectedUser.full_name}</div>
-                    <div className="text-muted small mt-1 font-monospace">CCCD: {selectedUser.cccd_number}</div>
+                    <div className="fw-bold text-dark" style={{ fontSize: '16px' }}>{selectedUser.fullName || selectedUser.full_name}</div>
+                    <div className="text-muted small mt-1 font-monospace">CCCD: {selectedUser.cccdNumber || selectedUser.cccd_number}</div>
                   </div>
                 </div>
 

@@ -1,8 +1,6 @@
 import React, { useEffect, useState, useRef } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
 
-const RED = '#a30d11';
-
 const TaxOfficerLayout = ({ children, user }) => {
   const [isDropdownOpen, setIsDropdownOpen] = useState(false);
   const dropdownRef = useRef(null);
@@ -10,132 +8,325 @@ const TaxOfficerLayout = ({ children, user }) => {
   const location = useLocation();
 
   useEffect(() => {
-    const handleClickOutside = (e) => {
-      if (dropdownRef.current && !dropdownRef.current.contains(e.target)) setIsDropdownOpen(false);
+    const handleClickOutside = (event) => {
+      if (dropdownRef.current && !dropdownRef.current.contains(event.target)) {
+        setIsDropdownOpen(false);
+      }
     };
     document.addEventListener('mousedown', handleClickOutside);
     return () => document.removeEventListener('mousedown', handleClickOutside);
   }, []);
 
-  const handleLogout = () => { localStorage.clear(); navigate('/'); };
+  const handleLogout = () => {
+    localStorage.clear();
+    navigate('/');
+  };
 
   const userRaw = user || JSON.parse(localStorage.getItem('user_info') || '{}');
   const userData = userRaw?.data || userRaw;
-  const displayName = userData?.fullName || 'Cán bộ Thuế';
-  const initial = displayName[0]?.toUpperCase() || 'C';
+  const displayName = userData?.fullName || 'CÁN BỘ THUẾ';
 
   return (
-    <div style={{ display: 'flex', flexDirection: 'column', height: '100vh', width: '100vw', overflow: 'hidden' }}>
+    <div style={styles.wrapper}>
+      {/* ================= HEADER ================= */}
+      <header
+        style={styles.header}
+        className="d-flex justify-content-between align-items-center px-4"
+      >
+        <div className="d-flex align-items-center">
+          {/* Logo VNeID đồng bộ với Admin */}
+          <img
+            src="https://vneid.gov.vn/_next/static/media/logo-full-vneid.c28b5b54.png"
+            alt="logo"
+            style={{ height: '35px' }}
+          />
 
-      {/* ── Header ── */}
-      <header style={{ height: 64, backgroundColor: RED, display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '0 24px', flexShrink: 0, zIndex: 1001 }}>
-        {/* Logo */}
-        <div style={{ display: 'flex', alignItems: 'center', gap: 10, minWidth: 200 }}>
-          <div style={{ width: 36, height: 36, background: '#ffc107', borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 18, flexShrink: 0 }}>⭐</div>
-          <div className="text-white">
-            <div style={{ fontWeight: 700, fontSize: 13, lineHeight: 1.2 }}>Hệ thống Quản lý</div>
-            <div style={{ fontSize: 11, opacity: 0.85 }}>Đất đai và Thuế đất đai</div>
-          </div>
-        </div>
-
-        {/* Search */}
-        <div style={{ flex: 1, maxWidth: 380, margin: '0 32px' }}>
-          <div style={{ position: 'relative' }}>
-            <i className="bi bi-search" style={{ position: 'absolute', left: 12, top: '50%', transform: 'translateY(-50%)', color: '#9ca3af', fontSize: 14 }} />
-            <input
-              type="text"
-              placeholder="Tìm kiếm chức năng..."
-              style={{ width: '100%', padding: '8px 12px 8px 36px', borderRadius: 8, border: 'none', fontSize: 13, background: 'rgba(255,255,255,0.15)', color: '#fff', outline: 'none' }}
-            />
-          </div>
-        </div>
-
-        {/* Right icons + user */}
-        <div style={{ display: 'flex', alignItems: 'center', gap: 16, color: '#fff' }} ref={dropdownRef}>
-          {/* Bell */}
-          <div style={{ position: 'relative', cursor: 'pointer' }}>
-            <i className="bi bi-bell fs-5" />
-            <span style={{ position: 'absolute', top: -4, right: -6, background: '#ef4444', color: '#fff', borderRadius: '50%', width: 16, height: 16, fontSize: 10, display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 700 }}>4</span>
-          </div>
-          <i className="bi bi-question-circle fs-5" style={{ cursor: 'pointer', opacity: 0.85 }} />
-          <i className="bi bi-sliders fs-5" style={{ cursor: 'pointer', opacity: 0.85 }} />
-
-          {/* User info */}
-          <div style={{ display: 'flex', alignItems: 'center', gap: 10, cursor: 'pointer', paddingLeft: 8, borderLeft: '1px solid rgba(255,255,255,0.25)' }} onClick={() => setIsDropdownOpen(!isDropdownOpen)}>
-            <div style={{ width: 34, height: 34, background: '#b91c1c', border: '2px solid rgba(255,255,255,0.4)', borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 700, fontSize: 15, color: '#fff' }}>{initial}</div>
-            <div>
-              <div style={{ fontWeight: 700, fontSize: 13, color: '#fff' }}>Cán bộ Thuế</div>
-              <div style={{ fontSize: 11, color: '#fca5a5' }}>Cơ quan Thuế</div>
+          <div className="ms-3 text-white text-start d-none d-md-block">
+            <div
+              className="fw-bold"
+              style={{ fontSize: '13px', lineHeight: '1.2' }}
+            >
+              HỆ THỐNG PHÂN HỆ
             </div>
-            <i className="bi bi-chevron-down" style={{ fontSize: 11, opacity: 0.7 }} />
+            <div
+              style={{ fontSize: '10px' }}
+              className="opacity-75 text-uppercase"
+            >
+              Quản lý thuế đất đai
+            </div>
+          </div>
+        </div>
+
+        {/* USER INFO + DROPDOWN */}
+        <div
+          className="d-flex align-items-center text-white position-relative"
+          ref={dropdownRef}
+        >
+          {/* Bell Thông báo */}
+          <div className="position-relative me-4 cursor-pointer">
+            <i className="bi bi-bell fs-5"></i>
+            <span
+              className="position-absolute top-0 start-100 translate-middle badge rounded-pill bg-warning text-dark"
+              style={{
+                fontSize: '10px',
+                padding: '2px 5px',
+              }}
+            >
+              4
+            </span>
           </div>
 
-          {isDropdownOpen && (
-            <div style={{ position: 'absolute', top: 70, right: 20, width: 200, background: '#fff', borderRadius: 12, boxShadow: '0 10px 30px rgba(0,0,0,0.15)', zIndex: 2000, overflow: 'hidden' }}>
-              <div style={{ padding: '14px 16px', borderBottom: '1px solid #f1f5f9' }}>
-                <div style={{ fontWeight: 600, fontSize: 13, color: '#1e293b' }}>{displayName}</div>
-                <div style={{ fontSize: 12, color: '#64748b' }}>Cán bộ Thuế</div>
+          <div
+            className="d-flex align-items-center cursor-pointer"
+            onClick={() => setIsDropdownOpen(!isDropdownOpen)}
+          >
+            <div className="me-3 text-end">
+              <div
+                className="fw-bold text-uppercase"
+                style={{ fontSize: '14px' }}
+              >
+                {displayName}
               </div>
-              <button onClick={handleLogout} style={{ width: '100%', padding: '12px 16px', border: 'none', background: 'none', textAlign: 'left', fontSize: 13, color: '#dc2626', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 8 }}>
-                <i className="bi bi-box-arrow-right" /> Đăng xuất
-              </button>
+              <div
+                style={{ fontSize: '11px' }}
+                className="text-warning fw-bold"
+              >
+                Cán bộ nghiệp vụ
+              </div>
+            </div>
+
+            <div style={styles.avatarWrapper}>
+              <img
+                src="https://upload.wikimedia.org/wikipedia/vi/a/ad/VNeID_logo.webp"
+                alt="avatar"
+                style={styles.avatarImage}
+              />
+            </div>
+          </div>
+
+          {/* DROPDOWN MENU */}
+          {isDropdownOpen && (
+            <div className="shadow-lg border-0" style={styles.dropdownMenu}>
+              <div className="list-group list-group-flush text-start">
+                <button
+                  className="list-group-item list-group-item-action border-0 py-3 small"
+                  onClick={() => navigate('/tax-officer/account')}
+                >
+                  <i className="bi bi-person-circle me-3"></i>
+                  Tài khoản
+                </button>
+
+                <button
+                  className="list-group-item list-group-item-action border-0 py-3 small text-danger"
+                  onClick={handleLogout}
+                >
+                  <i className="bi bi-box-arrow-right me-3"></i>
+                  Đăng xuất
+                </button>
+              </div>
             </div>
           )}
         </div>
       </header>
 
-      {/* ── Body ── */}
-      <div style={{ display: 'flex', flex: 1, background: '#f1f5f9', overflow: 'hidden' }}>
+      {/* ================= BODY ================= */}
+      <div style={styles.bodyContainer}>
+        {/* ================= SIDEBAR ================= */}
+        <nav style={styles.sidebar}>
+          <div style={{ padding: '18px 14px' }}>
+            <NavItem
+              active={location.pathname === '/tax-officer/dashboard'}
+              icon="bi-grid"
+              label="Bảng điều khiển"
+              onClick={() => navigate('/tax-officer/dashboard')}
+            />
 
-        {/* Sidebar */}
-        <nav style={{ width: 220, background: '#fff', margin: '14px 0 14px 14px', borderRadius: 16, boxShadow: '0 2px 12px rgba(0,0,0,0.07)', flexShrink: 0, display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
-          <div style={{ padding: '12px 10px', flex: 1 }}>
-            <NavItem active={location.pathname === '/tax-officer/dashboard'}         icon="bi-grid-3x3-gap-fill"       label="Bảng điều khiển"     onClick={() => navigate('/tax-officer/dashboard')} />
-            <NavItem active={location.pathname === '/tax-officer/tax-records'}        icon="bi-archive-fill"            label="Hồ sơ thuế"          onClick={() => navigate('/tax-officer/tax-records')} />
-            <NavItem active={location.pathname === '/tax-officer/tax-processing'}     icon="bi-file-earmark-check-fill" label="Xử lý khai thuế"     onClick={() => navigate('/tax-officer/tax-processing')} badge="5" />
-            <NavItem active={location.pathname === '/tax-officer/payment-management'} icon="bi-credit-card-2-front-fill" label="Quản lý thanh toán" onClick={() => navigate('/tax-officer/payment-management')} />
-            <NavItem active={location.pathname === '/tax-officer/complaint-management'} icon="bi-chat-square-text-fill" label="Xử lý khiếu nại"    onClick={() => navigate('/tax-officer/complaint-management')} />
-            <NavItem active={location.pathname === '/tax-officer/report-management'}  icon="bi-bar-chart-fill"          label="Báo cáo thống kê"    onClick={() => navigate('/tax-officer/report-management')} />
-            <div style={{ borderTop: '1px solid #f1f5f9', margin: '8px 0' }} />
-            <NavItem active={location.pathname === '/tax-officer/account'}            icon="bi-person-circle"           label="Tài khoản"           onClick={() => navigate('/tax-officer/account')} />
+            <NavItem
+              active={location.pathname === '/tax-officer/tax-records'}
+              icon="bi-archive"
+              label="Hồ sơ thuế"
+              onClick={() => navigate('/tax-officer/tax-records')}
+            />
+
+            <NavItem
+              active={location.pathname === '/tax-officer/tax-processing'}
+              icon="bi-file-earmark-check"
+              label="Xử lý khai thuế"
+              onClick={() => navigate('/tax-officer/tax-processing')}
+              badge="5"
+            />
+
+            <NavItem
+              active={location.pathname === '/tax-officer/payment-management'}
+              icon="bi-credit-card-2-front"
+              label="Quản lý thanh toán"
+              onClick={() => navigate('/tax-officer/payment-management')}
+            />
+
+            <NavItem
+              active={location.pathname === '/tax-officer/complaint-management'}
+              icon="bi-chat-square-text"
+              label="Xử lý khiếu nại"
+              onClick={() => navigate('/tax-officer/complaint-management')}
+            />
+
+            <NavItem
+              active={location.pathname === '/tax-officer/report-management'}
+              icon="bi-bar-chart"
+              label="Báo cáo thống kê"
+              onClick={() => navigate('/tax-officer/report-management')}
+            />
+
+            <NavItem
+              active={location.pathname === '/tax-officer/account'}
+              icon="bi-person-circle"
+              label="Tài khoản"
+              onClick={() => navigate('/tax-officer/account')}
+            />
           </div>
         </nav>
 
-        {/* Main content + footer */}
-        <div style={{ flex: 1, display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
-          <main style={{ flex: 1, padding: '24px', overflowY: 'auto' }}>{children}</main>
-
-          {/* Footer */}
-          <footer style={{ padding: '12px 24px', background: '#fff', borderTop: '1px solid #e2e8f0', display: 'flex', justifyContent: 'space-between', alignItems: 'center', fontSize: 12, color: '#64748b', flexShrink: 0 }}>
-            <span><i className="bi bi-building me-1" />Cơ quan Thuế / Cơ quan Địa chính Việt Nam</span>
-            <span><i className="bi bi-telephone me-1" />Hotline: 1900 xxxx</span>
-            <span><i className="bi bi-book me-1" />Hướng dẫn sử dụng hệ thống</span>
-          </footer>
-        </div>
+        {/* ================= CONTENT ================= */}
+        <main style={styles.content}>{children}</main>
       </div>
     </div>
   );
 };
 
+/* ================= NAV ITEM SUB-COMPONENT ================= */
 const NavItem = ({ active, icon, label, onClick, badge }) => (
   <div
     onClick={onClick}
     style={{
-      display: 'flex', alignItems: 'center', padding: '11px 14px', borderRadius: 10,
-      cursor: 'pointer', marginBottom: 2, transition: 'all 0.2s',
-      background: active ? RED : 'transparent',
+      ...styles.navItem,
+      ...(active ? styles.navItemActive : {}),
     }}
-    onMouseEnter={e => { if (!active) e.currentTarget.style.background = '#f8fafc'; }}
-    onMouseLeave={e => { if (!active) e.currentTarget.style.background = 'transparent'; }}
+    className="mb-2 d-flex align-items-center justify-content-between"
   >
-    <i className={`bi ${icon}`} style={{ fontSize: 16, color: active ? '#fff' : '#6c757d', marginRight: 10 }} />
-    <span style={{ fontSize: 14, fontWeight: active ? 600 : 500, color: active ? '#fff' : '#374151', flex: 1 }}>
-      {label}
-    </span>
+    <div className="d-flex align-items-center">
+      <div style={styles.iconWrapper}>
+        <i
+          className={`bi ${icon}${active ? '-fill' : ''}`}
+          style={{
+            fontSize: '20px',
+            color: active ? '#ffffff' : '#667085',
+          }}
+        ></i>
+      </div>
+
+      <span
+        style={{
+          marginLeft: '14px',
+          fontSize: '15px',
+          fontWeight: active ? '700' : '500',
+          color: active ? '#ffffff' : '#475467',
+        }}
+      >
+        {label}
+      </span>
+    </div>
+
     {badge && (
-      <span style={{ background: active ? 'rgba(255,255,255,0.3)' : '#ef4444', color: '#fff', borderRadius: 20, padding: '1px 7px', fontSize: 11, fontWeight: 700 }}>{badge}</span>
+      <span
+        className={`badge rounded-pill ${active ? 'bg-white text-danger' : 'bg-danger text-white'}`}
+        style={{ fontSize: '11px', padding: '4px 8px', fontWeight: '700' }}
+      >
+        {badge}
+      </span>
     )}
   </div>
 );
+
+/* ================= STYLES OBJECT ================= */
+const styles = {
+  wrapper: {
+    display: 'flex',
+    flexDirection: 'column',
+    width: '100vw',
+    height: '100vh',
+    overflow: 'hidden',
+    backgroundColor: '#f8fafc',
+  },
+
+  header: {
+    height: '70px',
+    backgroundColor: '#b91c1c',
+    borderBottom: '2px solid #fbbf24',
+    flexShrink: 0,
+    zIndex: 1000,
+  },
+
+  bodyContainer: {
+    display: 'flex',
+    flex: 1,
+    overflow: 'hidden',
+  },
+
+  sidebar: {
+    width: '320px',
+    backgroundColor: '#ffffff',
+    borderRight: '1px solid #e5e7eb',
+    paddingTop: '10px',
+    overflowY: 'auto',
+  },
+
+  content: {
+    flex: 1,
+    overflowY: 'auto',
+    padding: '24px',
+    backgroundColor: '#f8fafc',
+  },
+
+  navItem: {
+    display: 'flex',
+    alignItems: 'center',
+    padding: '14px 16px',
+    borderRadius: '14px',
+    cursor: 'pointer',
+    transition: 'all 0.2s ease',
+  },
+
+  navItemActive: {
+    backgroundColor: '#c5161d',
+  },
+
+  iconWrapper: {
+    width: '24px',
+    display: 'flex',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+
+  avatarWrapper: {
+    width: '42px',
+    height: '42px',
+    backgroundColor: '#fff',
+    borderRadius: '50%',
+    border: '2px solid #fbbf24',
+    display: 'flex',
+    alignItems: 'center',
+    justifyContent: 'center',
+    overflow: 'hidden',
+    padding: '3px',
+  },
+
+  avatarImage: {
+    width: '100%',
+    height: '100%',
+    objectFit: 'contain',
+  },
+
+  dropdownMenu: {
+    position: 'absolute',
+    top: '65px',
+    right: '0',
+    width: '220px',
+    backgroundColor: '#fff',
+    borderRadius: '14px',
+    overflow: 'hidden',
+    zIndex: 1000,
+    boxShadow: '0 10px 30px rgba(0,0,0,0.12)',
+  },
+};
 
 export default TaxOfficerLayout;

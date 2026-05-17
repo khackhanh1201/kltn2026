@@ -1,5 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import AdminLayout from '../../components/AdminLayout';
+// Import adminApi từ hạ tầng API (Named Export)
+import { adminApi } from '../../../infrastructure/api/adminApi'; 
 
 const AdminReportStats = () => {
   const user = JSON.parse(localStorage.getItem('user_info') || '{}');
@@ -19,48 +21,46 @@ const AdminReportStats = () => {
 
   const fetchReportData = async () => {
     setIsLoading(true);
+    setError(null);
     try {
-      const token = localStorage.getItem('token');
-      const baseUrl = 'http://localhost:8080'; // Thay bằng URL backend của bạn
-      const headers = { 'Authorization': `Bearer ${token}` };
+      // Thay thế fetch truyền thống bằng hàm từ adminApi đã định nghĩa
+      const statsData = await adminApi.getDashboardStatistics();
+      const s = statsData?.data || statsData;
 
-      // Gọi API Lấy Thống kê
-      const statsRes = await fetch(`${baseUrl}/api/admin/statistics/dashboard`, { headers });
-      
-      if (statsRes.ok) {
-        const stats = await statsRes.json();
-        const s = stats.data || stats;
-
-        // Map dữ liệu từ API (fallback bằng số liệu mẫu dựa trên DB nếu API thiếu)
+      if (s) {
+        // Map dữ liệu từ API (fallback bằng số liệu mẫu dựa trên DB nếu API thiếu trường)
         setKpis({
-          totalRecords: s.totalRecords || 13, // Trong bảng records có 13 dòng
-          totalRevenue: s.totalRevenue || 12013750, // Tổng giả định các khoản PAID trong tax_payments
+          totalRecords: s.totalRecords || 13, 
+          totalRevenue: s.totalRevenue || 12013750, 
           revenueGrowth: s.revenueGrowth || 5.4
         });
       } else {
-        // Fallback mockup nếu API chưa sẵn sàng
-        setKpis({ totalRecords: 13, totalRevenue: 12013750, revenueGrowth: 5.4 });
+        throw new Error('Dữ liệu trả về trống');
       }
 
     } catch (err) {
       console.error("Lỗi:", err);
-      // Fallback khi lỗi mạng
+      setError("Không thể làm mới dữ liệu. Đang hiển thị dữ liệu bộ nhớ đệm.");
+      // Giữ nguyên dữ liệu Fallback cũ khi lỗi mạng để giao diện không trống trải
       setKpis({ totalRecords: 13, totalRevenue: 12013750, revenueGrowth: 5.4 });
     } finally {
       setIsLoading(false);
     }
   };
 
-  // Hàm Xuất Báo Cáo: GET /api/admin/reports/export?type=...
+  // Hàm Xuất Báo Cáo: Đồng bộ hóa cấu trúc URL từ file adminApi gốc
   const handleExport = async (reportType, format) => {
     try {
       const token = localStorage.getItem('token');
-      const baseUrl = 'http://localhost:8080';
+      // Đảm bảo URL Base đồng nhất với 'http://localhost:8080/api'
+      const baseUrl = 'http://localhost:8080/api';
       
-      // Chuyển hướng trình duyệt đến link download hoặc fetch blob
-      window.open(`${baseUrl}/api/admin/reports/export?reportType=${reportType}&format=${format}&token=${token}`, '_blank');
+      // Chuyển hướng hoặc mở tab mới kèm Query Params và Token xác thực
+      const exportUrl = `${baseUrl}/admin/reports/export?reportType=${reportType}&format=${format}&token=${token}`;
+      window.open(exportUrl, '_blank');
       
     } catch (err) {
+      console.error("Lỗi xuất bản báo cáo:", err);
       alert("Lỗi khi xuất báo cáo");
     }
   };
@@ -79,6 +79,8 @@ const AdminReportStats = () => {
             <i className="bi bi-arrow-clockwise me-1"></i> Làm mới
           </button>
         </div>
+
+        {error && <div className="alert alert-warning py-2 small mb-4">{error}</div>}
 
         {isLoading ? (
           <div className="text-center py-5"><div className="spinner-border text-danger"></div></div>

@@ -1,9 +1,10 @@
 import React, { useState, useEffect } from 'react';
 import AdminLayout from '../../components/AdminLayout';
+// Import adminApi từ hạ tầng API (Named Export)
+import { adminApi } from '../../../infrastructure/api/adminApi';
 
 const UserManagement = () => {
   const user = JSON.parse(localStorage.getItem('user_info') || '{}');
-  const baseUrl = 'http://localhost:8080';
 
   const [users, setUsers] = useState([]);
   const [searchTerm, setSearchTerm] = useState('');
@@ -15,7 +16,7 @@ const UserManagement = () => {
   const [selectedUser, setSelectedUser] = useState(null);
   const [lockReason, setLockReason] = useState('');
 
-  // ===== FETCH DATA TỪ BACKEND =====
+  // ===== FETCH DATA TỪ BACKEND QUA ADMIN_API =====
   useEffect(() => {
     fetchUsers();
   }, []);
@@ -23,16 +24,14 @@ const UserManagement = () => {
   const fetchUsers = async () => {
     setIsLoading(true);
     try {
-      const token = localStorage.getItem('token');
-      const headers = { 'Authorization': `Bearer ${token}` };
+      // Thay thế gọi fetch thủ công bằng hàm tích hợp sẵn (Tự động giải nén và xử lý token)
+      const data = await adminApi.getUsers();
+      const usersData = data?.data || data;
 
-      const response = await fetch(`${baseUrl}/api/admin/users`, { headers });
-      
-      if (response.ok) {
-        const data = await response.json();
-        setUsers(data.data || data);
+      if (Array.isArray(usersData) && usersData.length > 0) {
+        setUsers(usersData);
       } else {
-        // Fallback: dùng mock data nếu API fail
+        // Fallback: dùng mock data gốc của bạn nếu mảng trống
         setUsers([
           { id: '1', name: 'Nguyễn Văn Công', email: 'cong.nv@vneid.gov', role: 'Công dân', cccd: '001090123456', status: 'Hoạt động', lastLogin: '10:30 18/04/2026' },
           { id: '2', name: 'Trần Thị Hằng', email: 'hang.tt@tax.gov.vn', role: 'Cán bộ Thuế', cccd: '001192654321', status: 'Hoạt động', lastLogin: '08:15 18/04/2026' },
@@ -41,12 +40,18 @@ const UserManagement = () => {
       }
     } catch (error) {
       console.error('Lỗi khi fetch users:', error);
+      // Fallback: Giữ nguyên mock khi lỗi mạng
+      setUsers([
+        { id: '1', name: 'Nguyễn Văn Công', email: 'cong.nv@vneid.gov', role: 'Công dân', cccd: '001090123456', status: 'Hoạt động', lastLogin: '10:30 18/04/2026' },
+        { id: '2', name: 'Trần Thị Hằng', email: 'hang.tt@tax.gov.vn', role: 'Cán bộ Thuế', cccd: '001192654321', status: 'Hoạt động', lastLogin: '08:15 18/04/2026' },
+        { id: '3', name: 'Lê Minh Tuấn', email: 'tuan.lm@land.gov.vn', role: 'Cán bộ Địa chính', cccd: '037085987654', status: 'Hoạt động', lastLogin: '09:00 18/04/2026' },
+      ]);
     } finally {
       setIsLoading(false);
     }
   };
 
-    // Lọc dữ liệu
+  // Lọc dữ liệu
   const filteredUsers = users.filter(u => {
     const userName = u.name || u.fullName || '';
     const userEmail = u.email || '';
@@ -66,7 +71,7 @@ const UserManagement = () => {
     setIsLockModalOpen(true);
   };
 
-  // Xử lý Khóa (gọi API để cập nhật)
+  // Xử lý Khóa (gọi API qua adminApi để cập nhật trạng thái)
   const handleConfirmLock = async () => {
     if (!lockReason.trim()) {
       alert('Vui lòng nhập lý do khóa tài khoản!');
@@ -74,26 +79,18 @@ const UserManagement = () => {
     }
 
     try {
-      const token = localStorage.getItem('token');
-      const response = await fetch(
-        `${baseUrl}/api/admin/users/${selectedUser.cccd || selectedUser.citizenCccd}/status?active=false`,
-        {
-          method: 'PUT',
-          headers: { 'Authorization': `Bearer ${token}` }
-        }
-      );
+      const targetCccd = selectedUser.cccd || selectedUser.citizenCccd || selectedUser.cccdNumber;
+      
+      // Sử dụng hàm updateUserStatus từ adminApi đã định nghĩa
+      await adminApi.updateUserStatus(targetCccd);
 
-      if (response.ok) {
-        // Cập nhật state sau khi khóa thành công
-        setUsers(users.map(u => u.id === selectedUser.id ? { ...u, status: 'Bị khóa' } : u));
-        setIsLockModalOpen(false);
-        alert('Khóa tài khoản thành công!');
-      } else {
-        alert('Lỗi khi khóa tài khoản!');
-      }
+      // Cập nhật state sau khi khóa thành công
+      setUsers(users.map(u => u.id === selectedUser.id ? { ...u, status: 'Bị khóa' } : u));
+      setIsLockModalOpen(false);
+      alert('Khóa tài khoản thành công!');
     } catch (error) {
       console.error('Lỗi khi khóa tài khoản:', error);
-      alert('Lỗi khi khóa tài khoản!');
+      alert(error.message || 'Lỗi khi khóa tài khoản!');
     }
   };
 
@@ -124,16 +121,17 @@ const UserManagement = () => {
               </div>
               <div className="col-md-4">
                 <select 
-                  className="form-select py-2 border-danger text-danger fw-semibold" 
-                  value={roleFilter} 
-                  onChange={(e) => setRoleFilter(e.target.value)} 
-                  style={{ borderRadius: '8px', backgroundColor: '#fff' }}
-                >
-                  <option value="Tất cả vai trò">Tất cả vai trò</option>
-                  <option value="Công dân">Công dân</option>
-                  <option value="Cán bộ Thuế">Cán bộ Thuế</option>
-                  <option value="Cán bộ Địa chính">Cán bộ Địa chính</option>
-                </select>
+  className="form-select py-2 border-danger text-danger fw-semibold" 
+  value={roleFilter} 
+  onChange={(e) => setRoleFilter(e.target.value)} 
+  style={{ borderRadius: '8px', backgroundColor: '#fff' }}
+>
+  <option value="Tất cả vai trò">Tất cả vai trò</option>
+  
+  <option value="CITIZEN">Công dân</option>
+  <option value="TAX_OFFICER">Cán bộ Thuế</option>
+  <option value="LAND_OFFICER">Cán bộ Địa chính</option>
+</select>
               </div>
             </div>
           </div>
@@ -142,7 +140,7 @@ const UserManagement = () => {
         {/* Loading State */}
         {isLoading && (
           <div className="text-center py-5">
-            <div className="spinner-border text-primary" role="status">
+            <div className="spinner-border text-danger" role="status">
               <span className="visually-hidden">Đang tải...</span>
             </div>
           </div>
@@ -178,12 +176,12 @@ const UserManagement = () => {
                         </div>
                       </td>
                       <td className="py-3 px-4">
-                        <span className={`badge rounded-pill px-3 py-2 ${getRoleBadgeClass(u.role)}`}>
+                        <span className="badge rounded-pill px-3 py-2 ${getRoleBadgeClass(u.role)}">
                           {u.role}
                         </span>
                       </td>
                       <td className="py-3 px-4 text-secondary small font-monospace">
-                        {u.cccdNumber || 'N/A'}
+                        {u.cccdNumber || u.cccd || 'N/A'}
                       </td>
                       <td className="py-3 px-4">
                         <div className={`d-flex align-items-center gap-2 small fw-semibold ${u.status === 'Hoạt động' ? 'text-success' : 'text-danger'}`}>

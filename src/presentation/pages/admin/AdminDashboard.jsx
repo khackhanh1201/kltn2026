@@ -1,10 +1,13 @@
 import React, { useState, useEffect } from 'react';
 import AdminLayout from '../../components/AdminLayout';
 import { useUserInfo } from '../../../hooks/useUserInfo';
+// Import adminApi dạng đặt tên (Named Export)
+import { adminApi } from '../../../infrastructure/api/adminApi'; 
 
 const AdminDashboard = () => {
   const user = JSON.parse(localStorage.getItem('user_info') || '{}');
   const { userInfo } = useUserInfo();
+  
   // State quản lý UI
   const [activeTab, setActiveTab] = useState('system');
   const [isLoading, setIsLoading] = useState(true);
@@ -35,45 +38,29 @@ const AdminDashboard = () => {
     setIsLoading(true);
     setError(null);
     try {
-      const token = localStorage.getItem('token');
-      const headers = {
-        'Authorization': `Bearer ${token}`,
-        'Content-Type': 'application/json'
-      };
-
-      // Đổi port cho khớp với backend của bạn
-      const baseUrl = 'http://localhost:8080'; 
-
-      // Gọi đồng thời 2 API
-      const [statsRes, logsRes] = await Promise.all([
-        fetch(`${baseUrl}/api/admin/statistics/dashboard`, { headers }),
-        fetch(`${baseUrl}/api/admin/audit-logs`, { headers })
+      // Gọi đồng thời 2 hàm lấy dữ liệu từ adminApi sạch sẽ thay vì gọi fetch rườm rà
+      const [statsData, logsData] = await Promise.all([
+        adminApi.getDashboardStatistics(),
+        adminApi.getAuditLogs()
       ]);
 
-      if (!statsRes.ok || !logsRes.ok) {
-        throw new Error('Lỗi khi tải dữ liệu từ máy chủ');
-      }
-
-      const statsData = await statsRes.json();
-      const logsData = await logsRes.json();
-
       // 1. MAP DỮ LIỆU THỐNG KÊ (KPI)
-      const dataS = statsData.data || statsData;
+      // Do hàm toArray() và handleResponse() đã giải nén data trong adminApi nên ta đọc trực tiếp
+      const dataS = statsData?.data || statsData || {};
       setStats({
-        visits24h: dataS.visits24h || '45.2K', // Fallback nếu chưa có API
-        totalAccounts: dataS.totalAccounts || 12, // Dựa theo số lượng trong bảng accounts
+        visits24h: dataS.visits24h || '45.2K', 
+        totalAccounts: dataS.totalAccounts || 12, 
         stuckDossiers: dataS.stuckDossiers || 0,
-        lockedAccounts: dataS.lockedAccounts || 1, // Trong bảng accounts có 1 user bị LOCKED
+        lockedAccounts: dataS.lockedAccounts || 1, 
         incidents: dataS.incidents || 0,
         incidentDetails: dataS.incidentDetails || []
       });
 
       // 2. MAP DỮ LIỆU NHẬT KÝ TỪ BẢNG `audit_logs`
-      const dataL = logsData.data || logsData;
       const formattedLogs = { system: [], security: [], error: [] };
 
-      if (Array.isArray(dataL)) {
-        dataL.forEach(log => {
+      if (Array.isArray(logsData)) {
+        logsData.forEach(log => {
           // Xử lý format thời gian từ trường `timestamp` của DB
           const logTime = log.timestamp 
             ? new Date(log.timestamp).toLocaleString('vi-VN', { 
@@ -91,7 +78,6 @@ const AdminDashboard = () => {
             id: log.id,
             time: logTime,
             content: logContent,
-            // Mặc định log được ghi lại là đã thành công
             status: 'Hoàn tất', 
             type: 'success'
           };
@@ -119,7 +105,7 @@ const AdminDashboard = () => {
         });
       }
 
-      // Sắp xếp lại log mới nhất lên đầu (nếu DB chưa sort)
+      // Sắp xếp lại log mới nhất lên đầu
       formattedLogs.system.sort((a, b) => b.id - a.id);
       formattedLogs.error.sort((a, b) => b.id - a.id);
       formattedLogs.security.sort((a, b) => b.id - a.id);
@@ -128,7 +114,7 @@ const AdminDashboard = () => {
 
     } catch (err) {
       console.error(err);
-      setError(err.message);
+      setError(err.message || 'Có lỗi xảy ra khi đồng bộ dữ liệu quản trị.');
     } finally {
       setIsLoading(false);
     }
@@ -295,7 +281,6 @@ const AdminDashboard = () => {
 };
 
 // --- Sub-Components ---
-
 const StatBox = ({ icon, value, label, iconColor }) => (
   <div className="col-6">
     <div className="d-flex align-items-center gap-3 p-2 rounded-3" style={{ background: 'rgba(255,255,255,0.1)' }}>
@@ -337,7 +322,6 @@ const TabButton = ({ active, label, onClick }) => (
   </button>
 );
 
-// --- Helper ---
 const getBadgeClass = (type) => {
   if (type === 'success') return 'bg-success bg-opacity-10 text-success';
   if (type === 'warning') return 'bg-warning bg-opacity-10 text-warning';

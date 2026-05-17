@@ -1,9 +1,10 @@
 import React, { useEffect, useState, useRef } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
 
-const CadastralLayout = ({ children, user }) => {
+const CadastralOfficerLayout = ({ children, user }) => {
   const [isDropdownOpen, setIsDropdownOpen] = useState(false);
   const dropdownRef = useRef(null);
+
   const navigate = useNavigate();
   const location = useLocation();
 
@@ -13,8 +14,12 @@ const CadastralLayout = ({ children, user }) => {
         setIsDropdownOpen(false);
       }
     };
+
     document.addEventListener('mousedown', handleClickOutside);
-    return () => document.removeEventListener('mousedown', handleClickOutside);
+
+    return () => {
+      document.removeEventListener('mousedown', handleClickOutside);
+    };
   }, []);
 
   const handleLogout = () => {
@@ -24,37 +29,90 @@ const CadastralLayout = ({ children, user }) => {
 
   return (
     <div style={styles.wrapper}>
-      {/* Header */}
-      <header style={styles.header} className="d-flex justify-content-between align-items-center px-4">
+      {/* HEADER */}
+      <header
+        style={styles.header}
+        className="d-flex justify-content-between align-items-center px-4"
+      >
         <div className="d-flex align-items-center">
-          <img src="https://vneid.gov.vn/_next/static/media/logo-full-vneid.c28b5b54.png" alt="logo" style={{ height: '35px' }} />
+          <img
+            src="https://vneid.gov.vn/_next/static/media/logo-full-vneid.c28b5b54.png"
+            alt="logo"
+            style={{ height: '35px' }}
+          />
+
           <div className="ms-3 text-white text-start d-none d-md-block">
-            <div className="fw-bold" style={{ fontSize: '13px', lineHeight: '1.2' }}>VĂN PHÒNG ĐĂNG KÝ ĐẤT ĐAI</div>
-            <div style={{ fontSize: '9px' }} className="opacity-75 text-uppercase">Hệ thống quản lý địa chính</div>
+            <div
+              className="fw-bold"
+              style={{ fontSize: '13px', lineHeight: '1.2' }}
+            >
+              BỘ TÀI NGUYÊN & MÔI TRƯỜNG
+            </div>
+
+            <div
+              style={{ fontSize: '9px' }}
+              className="opacity-75 text-uppercase"
+            >
+              Hệ thống quản lý địa chính số
+            </div>
           </div>
         </div>
 
-        <div className="d-flex align-items-center text-white position-relative" ref={dropdownRef}>
+        {/* USER */}
+        <div
+          className="d-flex align-items-center text-white position-relative"
+          ref={dropdownRef}
+        >
           <div className="position-relative me-4 cursor-pointer">
             <i className="bi bi-bell fs-5"></i>
-            <span className="position-absolute top-0 start-100 translate-middle badge rounded-pill bg-warning text-dark" style={{ fontSize: '10px', padding: '2px 5px' }}>2</span>
+
+            <span
+              className="position-absolute top-0 start-100 translate-middle badge rounded-pill bg-warning text-dark"
+              style={{ fontSize: '10px', padding: '2px 5px' }}
+            >
+              3
+            </span>
           </div>
 
-          <div className="d-flex align-items-center cursor-pointer" onClick={() => setIsDropdownOpen(!isDropdownOpen)}>
+          <div
+            className="d-flex align-items-center cursor-pointer"
+            onClick={() => setIsDropdownOpen(!isDropdownOpen)}
+          >
             <div className="me-3 text-end">
-              <div className="fw-bold text-uppercase" style={{ fontSize: '14px' }}>{user?.fullName || 'Cán bộ địa chính'}</div>
-              <div style={{ fontSize: '11px' }} className="text-warning fw-bold">Cán bộ địa chính</div>
+              <div
+                className="fw-bold text-uppercase"
+                style={{ fontSize: '14px' }}
+              >
+                {user?.fullName || 'CÁN BỘ ĐỊA CHÍNH'}
+              </div>
+
+              <div
+                style={{ fontSize: '11px' }}
+                className="text-warning fw-bold"
+              >
+                Cadastral Officer
+              </div>
             </div>
+
             <div style={styles.avatarWrapper}>
-              <img src="https://upload.wikimedia.org/wikipedia/vi/a/ad/VNeID_logo.webp" alt="avatar" style={styles.avatarImage} />
+              <img
+                src="https://upload.wikimedia.org/wikipedia/vi/a/ad/VNeID_logo.webp"
+                alt="avatar"
+                style={styles.avatarImage}
+              />
             </div>
           </div>
 
+          {/* DROPDOWN */}
           {isDropdownOpen && (
             <div className="shadow-lg border-0" style={styles.dropdownMenu}>
               <div className="list-group list-group-flush text-start">
-                <button className="list-group-item list-group-item-action border-0 py-3 small" onClick={handleLogout}>
-                  <i className="bi bi-box-arrow-right me-3"></i> Đăng xuất
+                <button
+                  className="list-group-item list-group-item-action border-0 py-3 small"
+                  onClick={handleLogout}
+                >
+                  <i className="bi bi-box-arrow-right me-3"></i>
+                  Đăng xuất
                 </button>
               </div>
             </div>
@@ -62,77 +120,124 @@ const CadastralLayout = ({ children, user }) => {
         </div>
       </header>
 
+      {/* BODY */}
       <div style={styles.bodyContainer}>
+        {/* SIDEBAR */}
         <nav style={styles.sidebar}>
           <div style={{ padding: '15px 12px' }}>
             <NavItem
-              active={location.pathname === '/cadastral/dashboard'}
+              active={
+                location.pathname === '/cadastral-dashboard' ||
+                location.pathname === '/dashboard'
+              }
               icon="bi-grid-3x3-gap-fill"
               label="Bảng điều khiển"
-              onClick={() => navigate('/cadastral/dashboard')}
+              onClick={() => navigate('/cadastral-dashboard')}
             />
+
             <NavItem
-              active={location.pathname === '/cadastral/land-registry'}
-              icon="bi-map-fill"
-              label="Sổ địa chính"
-              onClick={() => navigate('/cadastral/land-registry')}
+              active={location.pathname === '/digital-cadastral-map'}
+              icon="bi-map"
+              label="Sổ địa chính số"
+              onClick={() => navigate('/digital-cadastral-map')}
             />
+
             <NavItem
-              active={location.pathname === '/cadastral/dossier-processing'}
-              icon="bi-file-earmark-text-fill"
-              label="Xử lý hồ sơ"
-              onClick={() => navigate('/cadastral/dossier-processing')}
+              active={location.pathname === '/land-price-management'}
+              icon="bi-bank"
+              label="Quản lý Giá đất"
+              onClick={() => navigate('/land-price-management')}
             />
+
             <NavItem
-              active={location.pathname === '/cadastral/land-price-management'}
-              icon="bi-cash-coin"
-              label="Quản lý giá đất"
-              onClick={() => navigate('/cadastral/land-price-management')}
+              active={location.pathname === '/cadastral-records'}
+              icon="bi-folder"
+              label="Xử lý Hồ sơ"
+              badge="3"
+              onClick={() => navigate('/cadastral-records')}
             />
+
             <NavItem
-              active={location.pathname === '/cadastral/complaint-handling'}
-              icon="bi-exclamation-triangle-fill"
-              label="Xử lý khiếu nại"
-              onClick={() => navigate('/cadastral/complaint-handling')}
+              active={location.pathname === '/cadastral-complaints'}
+              icon="bi-scales"
+              label="Xử lý Khiếu nại"
+              onClick={() => navigate('/cadastral-complaints')}
             />
+
             <NavItem
-              active={location.pathname === '/cadastral/report-stats'}
-              icon="bi-bar-chart-fill"
+              active={location.pathname === '/cadastral-reports'}
+              icon="bi-bar-chart-line"
               label="Báo cáo thống kê"
-              onClick={() => navigate('/cadastral/report-stats')}
+              onClick={() => navigate('/cadastral-reports')}
+            />
+
+            <NavItem
+              active={location.pathname === '/account'}
+              icon="bi-person-circle"
+              label="Tài khoản"
+              onClick={() => navigate('/account')}
             />
           </div>
         </nav>
 
+        {/* CONTENT */}
         <main style={styles.content}>{children}</main>
       </div>
     </div>
   );
 };
 
+/* ======================== NAV ITEM ======================== */
+
 const NavItem = ({ active, icon, label, onClick, badge }) => (
   <div
     onClick={onClick}
     style={{
       ...styles.navItem,
-      ...(active ? styles.navItemActive : {})
+      ...(active ? styles.navItemActive : {}),
     }}
-    className="cursor-pointer mb-1"
+    className="cursor-pointer mb-2"
   >
-    <div style={active ? styles.iconWrapperActive : styles.iconWrapper}>
-      <i className={`bi ${icon} fs-5`} style={{ color: active ? '#1565c0' : '#6c757d' }}></i>
+    {/* ICON */}
+    <div style={styles.iconContainer}>
+      <i
+        className={`bi ${icon}`}
+        style={{
+          fontSize: '22px',
+          color: active ? '#ffffff' : '#5b6577',
+        }}
+      ></i>
     </div>
-    <span style={{
-      fontSize: '15px',
-      fontWeight: active ? '600' : '500',
-      color: active ? '#1565c0' : '#333',
-      flex: 1,
-      marginLeft: '12px'
-    }}>
+
+    {/* LABEL */}
+    <span
+      style={{
+        fontSize: '17px',
+        fontWeight: active ? '700' : '500',
+        color: active ? '#ffffff' : '#5b6577',
+        marginLeft: '14px',
+        flex: 1,
+      }}
+    >
       {label}
     </span>
+
+    {/* BADGE */}
     {badge && (
-      <span className="badge bg-primary rounded-pill px-2 py-1" style={{ fontSize: '12px' }}>
+      <span
+        className="badge rounded-pill"
+        style={{
+          backgroundColor: active ? '#ffffff' : '#c91d1d',
+          color: active ? '#c91d1d' : '#ffffff',
+          fontSize: '13px',
+          minWidth: '28px',
+          height: '28px',
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+          fontWeight: '700',
+        }}
+      >
         {badge}
       </span>
     )}
@@ -140,43 +245,93 @@ const NavItem = ({ active, icon, label, onClick, badge }) => (
 );
 
 const styles = {
-  wrapper: { display: 'flex', flexDirection: 'column', height: '100vh', width: '100vw', overflow: 'hidden' },
-  header: { height: '70px', backgroundColor: '#1565c0', borderBottom: '2px solid #ffc107', flexShrink: 0, zIndex: 1001 },
-  bodyContainer: { display: 'flex', flex: 1, backgroundColor: '#f8f9fa', overflow: 'hidden' },
-  sidebar: {
-    width: '260px',
-    backgroundColor: '#fff',
-    margin: '15px 0 15px 15px',
-    borderRadius: '20px',
-    boxShadow: '0 4px 15px rgba(0,0,0,0.08)',
+  wrapper: {
+    display: 'flex',
+    flexDirection: 'column',
+    height: '100vh',
+    width: '100vw',
     overflow: 'hidden',
-    flexShrink: 0,
-    alignSelf: 'stretch',
+    backgroundColor: '#f4f6f9',
   },
+
+  header: {
+    height: '70px',
+    backgroundColor: '#b31217',
+    borderBottom: '2px solid #ffc107',
+    flexShrink: 0,
+    zIndex: 1000,
+  },
+
+  bodyContainer: {
+    display: 'flex',
+    flex: 1,
+    overflow: 'hidden',
+  },
+
+  sidebar: {
+    width: '320px',
+    backgroundColor: '#ffffff',
+    paddingTop: '5px',
+    borderRight: '1px solid #edf0f5',
+    overflowY: 'auto',
+    flexShrink: 0,
+  },
+
   navItem: {
     display: 'flex',
     alignItems: 'center',
-    padding: '14px 20px',
-    borderRadius: '12px',
-    cursor: 'pointer',
+    padding: '16px 18px',
+    borderRadius: '16px',
     transition: 'all 0.25s ease',
   },
+
   navItemActive: {
-    backgroundColor: '#e8f0fe',
-    border: '1px solid #bbdefb',
+    backgroundColor: '#c5161d',
+    boxShadow: '0 6px 14px rgba(197,22,29,0.18)',
   },
-  iconWrapper: {
-    width: '38px', height: '38px', display: 'flex', alignItems: 'center',
-    justifyContent: 'center', borderRadius: '10px', backgroundColor: '#f8f9fa',
+
+  iconContainer: {
+    width: '30px',
+    display: 'flex',
+    alignItems: 'center',
+    justifyContent: 'center',
   },
-  iconWrapperActive: {
-    width: '38px', height: '38px', display: 'flex', alignItems: 'center',
-    justifyContent: 'center', borderRadius: '10px', backgroundColor: '#bbdefb',
+
+  content: {
+    flex: 1,
+    padding: '24px',
+    overflowY: 'auto',
   },
-  content: { flex: 1, padding: '25px', overflowY: 'auto' },
-  avatarWrapper: { width: '42px', height: '42px', backgroundColor: '#fff', borderRadius: '50%', border: '2px solid #ffc107', display: 'flex', alignItems: 'center', justifyContent: 'center', overflow: 'hidden', padding: '3px' },
-  avatarImage: { width: '100%', height: '100%', objectFit: 'contain' },
-  dropdownMenu: { position: 'absolute', top: '65px', right: '20px', width: '200px', backgroundColor: '#fff', borderRadius: '15px', zIndex: 1000, boxShadow: '0 10px 30px rgba(0,0,0,0.12)' },
+
+  avatarWrapper: {
+    width: '42px',
+    height: '42px',
+    backgroundColor: '#fff',
+    borderRadius: '50%',
+    border: '2px solid #ffc107',
+    display: 'flex',
+    alignItems: 'center',
+    justifyContent: 'center',
+    overflow: 'hidden',
+    padding: '3px',
+  },
+
+  avatarImage: {
+    width: '100%',
+    height: '100%',
+    objectFit: 'contain',
+  },
+
+  dropdownMenu: {
+    position: 'absolute',
+    top: '65px',
+    right: '20px',
+    width: '200px',
+    backgroundColor: '#fff',
+    borderRadius: '15px',
+    zIndex: 1000,
+    boxShadow: '0 10px 30px rgba(0,0,0,0.12)',
+  },
 };
 
-export default CadastralLayout;
+export default CadastralOfficerLayout;

@@ -1,5 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import AdminLayout from '../../components/AdminLayout';
+// Import adminApi từ hạ tầng API (Named Export)
+import { adminApi } from '../../../infrastructure/api/adminApi';
 
 const OperationHistory = () => {
   const user = JSON.parse(localStorage.getItem('user_info') || '{}');
@@ -23,17 +25,8 @@ const OperationHistory = () => {
     setIsLoading(true);
     setError(null);
     try {
-      const token = localStorage.getItem('token');
-      const baseUrl = 'http://localhost:8080'; // Thay bằng port backend của bạn
-      
-      const res = await fetch(`${baseUrl}/api/admin/audit-logs`, {
-        headers: { 'Authorization': `Bearer ${token}` }
-      });
-
-      if (!res.ok) throw new Error('Không thể tải dữ liệu lịch sử thao tác');
-
-      const data = await res.json();
-      const rawLogs = data.data || data;
+      // Thay thế bằng hàm trong adminApi (Tự động bọc handleResponse và headers bảo mật)
+      const rawLogs = await adminApi.getAuditLogs();
 
       if (Array.isArray(rawLogs)) {
         // Map dữ liệu từ DB (Bảng audit_logs) sang format hiển thị
@@ -55,7 +48,7 @@ const OperationHistory = () => {
             id: log.id,
             time: formattedTime,
             rawDate: logDate ? logDate.toISOString().split('T')[0] : '', // Dùng để lọc ngày
-            accountName: log.fullName || 'Hệ thống / Ẩn danh', // Backend có thể join thêm fullName, nếu ko có thì mặc định
+            accountName: log.fullName || 'Hệ thống / Ẩn danh', 
             accountId: log.user_cccd || log.userCccd || 'N/A',
             ip: log.ip_address || log.ipAddress || 'Không xác định',
             actionType: log.action || 'KHÔNG RÕ',
@@ -71,7 +64,7 @@ const OperationHistory = () => {
       }
     } catch (err) {
       console.error(err);
-      setError(err.message);
+      setError(err.message || 'Có lỗi xảy ra khi tải lịch sử kiểm toán.');
     } finally {
       setIsLoading(false);
     }
@@ -98,13 +91,14 @@ const OperationHistory = () => {
   // Lấy danh sách các loại thao tác duy nhất để hiển thị vào thẻ select (Dropdown)
   const uniqueActions = [...new Set(logs.map(log => log.actionType))];
 
-  // Hàm xuất CSV
+  // Hàm xuất CSV: Sử dụng đúng token và endpoint tập trung
   const handleExportCSV = () => {
     try {
       const token = localStorage.getItem('token');
-      const baseUrl = 'http://localhost:8080';
-      window.open(`${baseUrl}/api/admin/reports/export?reportType=AUDIT_LOGS&format=csv&token=${token}`, '_blank');
+      const baseUrl = 'http://localhost:8080/api';
+      window.open(`${baseUrl}/admin/reports/export?reportType=AUDIT_LOGS&format=csv&token=${token}`, '_blank');
     } catch (err) {
+      console.error(err);
       alert("Lỗi khi xuất dữ liệu");
     }
   };
@@ -133,7 +127,7 @@ const OperationHistory = () => {
           </div>
         </div>
 
-        {error && <div className="alert alert-danger">{error}</div>}
+        {error && <div className="alert alert-danger py-2 small mb-4">{error}</div>}
 
         {/* Filter Bar */}
         <div className="card shadow-sm border-0 mb-4" style={{ borderRadius: '12px' }}>

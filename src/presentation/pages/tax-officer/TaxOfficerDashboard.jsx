@@ -1,5 +1,5 @@
 import React from 'react';
-import LandTaxLayout from '../../components/TaxOfficerLayout';
+import TaxOfficerLayout from '../../components/TaxOfficerLayout';
 import { useUserInfo } from '../../../hooks/useUserInfo';
 
 
