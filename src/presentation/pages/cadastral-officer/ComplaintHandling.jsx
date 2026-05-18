@@ -1,7 +1,6 @@
 import React, { useState } from 'react';
-// Giả định bạn có component Layout riêng
-// import CadastralLayout from '../../components/CadastralLayout'; 
-
+import { useUserInfo } from '../../../hooks/useUserInfo';
+import CadastralLayout from '../../components/CadastralLayout';
 // --- MOCK DATA ---
 const MOCK_COMPLAINTS = [
   { 
@@ -56,8 +55,9 @@ const MOCK_COMPLAINTS = [
 ];
 
 const ComplaintHandling = () => {
-  const [view, setView] = useState('list'); // 'list' | 'detail'
-  
+  const { user } = useUserInfo();   // Lấy user từ hook
+
+  const [view, setView] = useState('list');
   const [activeTab, setActiveTab] = useState('Tất cả');
   const [showAdvancedSearch, setShowAdvancedSearch] = useState(false);
   const [selectedComplaint, setSelectedComplaint] = useState(null);
@@ -70,109 +70,108 @@ const ComplaintHandling = () => {
   // ================= VIEW: DANH SÁCH =================
   if (view === 'list') {
     return (
-      <div style={{ backgroundColor: '#f8fafc', minHeight: '100vh', padding: '30px 40px', fontFamily: 'Inter, sans-serif' }}>
-        
-        {/* Header */}
-        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 24 }}>
-          <div>
-            <h2 style={{ margin: 0, fontWeight: 800, color: '#1e293b' }}>Xử lý khiếu nại</h2>
-            <p style={{ color: '#64748b', marginTop: 4, fontSize: 14 }}>Tiếp nhận và giải quyết các khiếu nại về nghĩa vụ tài chính</p>
+      <CadastralLayout user={user}>   {/* ← BỌC LAYOUT Ở ĐÂY */}
+        <div style={{ padding: '10px 20px' }}>
+          {/* Header */}
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 24 }}>
+            <div>
+              <h2 style={{ margin: 0, fontWeight: 800, color: '#1e293b' }}>Xử lý khiếu nại</h2>
+              <p style={{ color: '#64748b', marginTop: 4, fontSize: 14 }}>Tiếp nhận và giải quyết các khiếu nại về nghĩa vụ tài chính</p>
+            </div>
+            
+            <div style={{ display: 'flex', gap: 12, position: 'relative' }}>
+              <div style={searchWrapperStyle}>
+                <i className="bi bi-search" style={searchIconStyle}></i>
+                <input 
+                  type="text" 
+                  placeholder="Tìm kiếm mã khiếu nại, tên người dân..." 
+                  style={searchInputStyle}
+                />
+              </div>
+
+              <button style={btnDarkRedStyle} onClick={() => setShowAdvancedSearch(!showAdvancedSearch)}>
+                <i className="bi bi-funnel"></i> Tìm kiếm nâng cao
+              </button>
+
+              {showAdvancedSearch && (
+                <div style={popoverStyle}>
+                  <h4 style={{ margin: '0 0 20px 0', fontSize: 18, fontWeight: 800, color: '#1e293b' }}>Bộ lọc tìm kiếm</h4>
+                  <div style={filterGridStyle}>
+                    <div>
+                      <label style={labelStyle}>TRẠNG THÁI</label>
+                      <select style={inputBaseStyle}><option>Tất cả trạng thái</option></select>
+                    </div>
+                    <div>
+                      <label style={labelStyle}>LOẠI KHIẾU NẠI</label>
+                      <select style={inputBaseStyle}><option>Tất cả loại</option></select>
+                    </div>
+                    <div>
+                      <label style={labelStyle}>TỪ NGÀY</label>
+                      <input type="date" style={inputBaseStyle} />
+                    </div>
+                    <div>
+                      <label style={labelStyle}>ĐẾN NGÀY</label>
+                      <input type="date" style={inputBaseStyle} />
+                    </div>
+                  </div>
+                  <div style={{ display: 'flex', gap: 12, marginTop: 24 }}>
+                    <button style={btnCancelStyle} onClick={() => setShowAdvancedSearch(false)}>Xóa bộ lọc</button>
+                    <button style={btnSaveRedStyle} onClick={() => setShowAdvancedSearch(false)}>Áp dụng</button>
+                  </div>
+                </div>
+              )}
+            </div>
           </div>
-          
-          <div style={{ display: 'flex', gap: 12, position: 'relative' }}>
-            <div style={searchWrapperStyle}>
-              <i className="bi bi-search" style={searchIconStyle}></i>
-              <input 
-                type="text" 
-                placeholder="Tìm kiếm mã khiếu nại, tên người dân..." 
-                style={searchInputStyle}
-              />
+
+          {/* Table Container */}
+          <div style={tableCardStyle}>
+            <div style={tabsWrapper}>
+              {['Tất cả', 'Chờ xử lý', 'Đang xử lý', 'Đã giải quyết'].map(tab => (
+                <button 
+                  key={tab} 
+                  onClick={() => setActiveTab(tab)}
+                  style={activeTab === tab ? tabActive : tabInactive}
+                >
+                  {tab}
+                </button>
+              ))}
             </div>
 
-            <button style={btnDarkRedStyle} onClick={() => setShowAdvancedSearch(!showAdvancedSearch)}>
-              <i className="bi bi-funnel"></i> Tìm kiếm nâng cao
-            </button>
-
-            {/* Advanced Search Popover */}
-            {showAdvancedSearch && (
-              <div style={popoverStyle}>
-                <h4 style={{ margin: '0 0 20px 0', fontSize: 18, fontWeight: 800, color: '#1e293b' }}>Bộ lọc tìm kiếm</h4>
-                <div style={filterGridStyle}>
-                  <div>
-                    <label style={labelStyle}>TRẠNG THÁI</label>
-                    <select style={inputBaseStyle}><option>Tất cả trạng thái</option></select>
-                  </div>
-                  <div>
-                    <label style={labelStyle}>LOẠI KHIẾU NẠI</label>
-                    <select style={inputBaseStyle}><option>Tất cả loại</option></select>
-                  </div>
-                  <div>
-                    <label style={labelStyle}>TỪ NGÀY</label>
-                    <input type="date" style={inputBaseStyle} />
-                  </div>
-                  <div>
-                    <label style={labelStyle}>ĐẾN NGÀY</label>
-                    <input type="date" style={inputBaseStyle} />
-                  </div>
-                </div>
-                <div style={{ display: 'flex', gap: 12, marginTop: 24 }}>
-                  <button style={btnCancelStyle} onClick={() => setShowAdvancedSearch(false)}>Xóa bộ lọc</button>
-                  <button style={btnSaveRedStyle} onClick={() => setShowAdvancedSearch(false)}>Áp dụng</button>
-                </div>
-              </div>
-            )}
-          </div>
-        </div>
-
-        {/* Table Container */}
-        <div style={tableCardStyle}>
-          {/* Tabs */}
-          <div style={tabsWrapper}>
-            {['Tất cả', 'Chờ xử lý', 'Đang xử lý', 'Đã giải quyết'].map(tab => (
-              <button 
-                key={tab} 
-                onClick={() => setActiveTab(tab)}
-                style={activeTab === tab ? tabActive : tabInactive}
-              >
-                {tab}
-              </button>
-            ))}
-          </div>
-
-          <table style={tableStyle}>
-            <thead>
-              <tr style={thRowStyle}>
-                <th style={thCellStyle}>MÃ KHIẾU NẠI</th>
-                <th style={thCellStyle}>NGƯỜI KHIẾU NẠI</th>
-                <th style={thCellStyle}>LOẠI KHIẾU NẠI</th>
-                <th style={thCellStyle}>NGÀY GỬI</th>
-                <th style={thCellStyle}>TRẠNG THÁI</th>
-                <th style={{ ...thCellStyle, textAlign: 'center' }}>THAO TÁC</th>
-                <th style={{ ...thCellStyle, textAlign: 'center' }}>XUẤT HỒ SƠ</th>
-              </tr>
-            </thead>
-            <tbody>
-              {MOCK_COMPLAINTS.map((item, idx) => (
-                <tr key={idx} style={tdRowStyle}>
-                  <td style={{ ...tdCellStyle, fontWeight: 700, color: '#1e293b' }}>{item.id}</td>
-                  <td style={{ ...tdCellStyle, fontWeight: 700 }}>{item.name}</td>
-                  <td style={{ ...tdCellStyle, color: '#64748b' }}>{item.type}</td>
-                  <td style={{ ...tdCellStyle, color: '#64748b' }}>{item.date}</td>
-                  <td style={tdCellStyle}><span style={getStatusBadge(item.status)}>{item.status}</span></td>
-                  <td style={{ ...tdCellStyle, textAlign: 'center' }}>
-                    <button style={iconBtnStyle} onClick={() => handleViewDetail(item)}>
-                      <i className="bi bi-eye"></i>
-                    </button>
-                  </td>
-                  <td style={{ ...tdCellStyle, textAlign: 'center' }}>
-                    <button style={iconBtnStyle}><i className="bi bi-download"></i></button>
-                  </td>
+            <table style={tableStyle}>
+              <thead>
+                <tr style={thRowStyle}>
+                  <th style={thCellStyle}>MÃ KHIẾU NẠI</th>
+                  <th style={thCellStyle}>NGƯỜI KHIẾU NẠI</th>
+                  <th style={thCellStyle}>LOẠI KHIẾU NẠI</th>
+                  <th style={thCellStyle}>NGÀY GỬI</th>
+                  <th style={thCellStyle}>TRẠNG THÁI</th>
+                  <th style={{ ...thCellStyle, textAlign: 'center' }}>THAO TÁC</th>
+                  <th style={{ ...thCellStyle, textAlign: 'center' }}>XUẤT HỒ SƠ</th>
                 </tr>
-              ))}
-            </tbody>
-          </table>
+              </thead>
+              <tbody>
+                {MOCK_COMPLAINTS.map((item, idx) => (
+                  <tr key={idx} style={tdRowStyle}>
+                    <td style={{ ...tdCellStyle, fontWeight: 700, color: '#1e293b' }}>{item.id}</td>
+                    <td style={{ ...tdCellStyle, fontWeight: 700 }}>{item.name}</td>
+                    <td style={{ ...tdCellStyle, color: '#64748b' }}>{item.type}</td>
+                    <td style={{ ...tdCellStyle, color: '#64748b' }}>{item.date}</td>
+                    <td style={tdCellStyle}><span style={getStatusBadge(item.status)}>{item.status}</span></td>
+                    <td style={{ ...tdCellStyle, textAlign: 'center' }}>
+                      <button style={iconBtnStyle} onClick={() => handleViewDetail(item)}>
+                        <i className="bi bi-eye"></i>
+                      </button>
+                    </td>
+                    <td style={{ ...tdCellStyle, textAlign: 'center' }}>
+                      <button style={iconBtnStyle}><i className="bi bi-download"></i></button>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
         </div>
-      </div>
+      </CadastralLayout>
     );
   }
 
@@ -180,6 +179,7 @@ const ComplaintHandling = () => {
   if (view === 'detail' && selectedComplaint) {
     const c = selectedComplaint;
     return (
+      <CadastralLayout user={user}>
       <div style={{ backgroundColor: '#f8fafc', minHeight: '100vh', padding: '30px 40px', fontFamily: 'Inter, sans-serif' }}>
         
         {/* Header */}
@@ -278,6 +278,7 @@ const ComplaintHandling = () => {
 
         </div>
       </div>
+      </CadastralLayout>
     );
   }
 };

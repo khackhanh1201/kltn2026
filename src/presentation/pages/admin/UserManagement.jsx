@@ -176,18 +176,20 @@ const UserManagement = () => {
                         </div>
                       </td>
                       <td className="py-3 px-4">
-                        <span className="badge rounded-pill px-3 py-2 ${getRoleBadgeClass(u.role)}">
-                          {u.role}
-                        </span>
+                        <span className={`badge px-3 py-2 ${getRoleBadgeClass(u.role)}`}>
+  {u.role}
+</span>
                       </td>
                       <td className="py-3 px-4 text-secondary small font-monospace">
                         {u.cccdNumber || u.cccd || 'N/A'}
                       </td>
                       <td className="py-3 px-4">
-                        <div className={`d-flex align-items-center gap-2 small fw-semibold ${u.status === 'Hoạt động' ? 'text-success' : 'text-danger'}`}>
-                          <div className={`rounded-circle ${u.status === 'Hoạt động' ? 'bg-success' : 'bg-danger'}`} style={{ width: '8px', height: '8px' }}></div>
-                          {u.status}
-                        </div>
+                        <div className={`d-flex align-items-center gap-2 small fw-semibold 
+    ${getStatusClass(u.status)}`}>
+    <div className={`rounded-circle ${getStatusDotClass(u.status)}`} 
+         style={{ width: '8px', height: '8px' }}></div>
+    {getStatusDisplay(u.status)}
+  </div>
                       </td>
                       <td className="py-3 px-4 text-muted small">
                         {u.lastLogin || 'N/A'}
@@ -277,5 +279,38 @@ const getRoleBadgeClass = (role) => {
   if (role === 'Cán bộ Địa chính') return 'bg-info bg-opacity-10 text-info';
   return 'bg-secondary bg-opacity-10 text-secondary';
 };
+// Hàm mới xử lý Trạng thái
+const getStatusClass = (status) => {
+  if (!status) return 'text-secondary';
+  
+  const upperStatus = String(status).toUpperCase();
+  if (upperStatus === 'ACTIVE' || upperStatus === 'HOẠT ĐỘNG') {
+    return 'text-success';
+  }
+  if (upperStatus === 'LOCKED' || upperStatus === 'BỊ KHÓA') {
+    return 'text-danger';
+  }
+  return 'text-secondary';
+};
 
+const getStatusDotClass = (status) => {
+  const upperStatus = String(status).toUpperCase();
+  if (upperStatus === 'ACTIVE' || upperStatus === 'HOẠT ĐỘNG') {
+    return 'bg-success';
+  }
+  if (upperStatus === 'LOCKED' || upperStatus === 'BỊ KHÓA') {
+    return 'bg-danger';
+  }
+  return 'bg-secondary';
+};
+
+const getStatusDisplay = (status) => {
+  if (!status) return 'N/A';
+  
+  const upperStatus = String(status).toUpperCase();
+  if (upperStatus === 'ACTIVE') return 'Hoạt động';
+  if (upperStatus === 'LOCKED') return 'Bị khóa';
+  
+  return status;
+};
 export default UserManagement;

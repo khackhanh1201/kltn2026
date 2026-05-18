@@ -1,27 +1,62 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import CadastralLayout from '../../components/CadastralLayout';
+import { useUserInfo } from '../../../hooks/useUserInfo';
+
+const API_BASE = 'http://localhost:8080/api';
+const getAuth = () => ({ 'Content-Type': 'application/json', Authorization: `Bearer ${localStorage.getItem('token')}` });
 
 // Mock Data
 const MOCK_LAND_RECORDS = [
-  { gcn: 'CH00124', lot: '102', mapSheet: '15', type: 'Đất ở đô thị', address: '123 Đường Kim Giang, Phường Thanh Liệt, Huyện Thanh Trì, TP. Hà Nội' },
-  { gcn: 'CH00045', lot: '45', mapSheet: '8', type: 'Đất thương mại', address: '456 Đường Thanh Liệt, Phường Thanh Liệt, Huyện Thanh Trì, TP. Hà Nội' },
-  { gcn: 'CH00102', lot: '78', mapSheet: '12', type: 'Đất ở đô thị', address: '789 Đường Cầu Bươu, Phường Thanh Liệt, Huyện Thanh Trì, TP. Hà Nội' },
+  { id: 1, certificateCode: 'CH12345', parcelNumber: '101', mapSheetNumber: '25', landType: 'Đất ở tại đô thị', address: '123 Đường ABC, Phường Thanh Liệt, Thanh Trì, Hà Nội' },
+  { id: 2, certificateCode: 'CH67890', parcelNumber: '205', mapSheetNumber: '25', landType: 'Đất trồng cây lâu năm', address: '456 Đường XYZ, Phường Thanh Liệt, Thanh Trì, Hà Nội' },
+  { id: 3, certificateCode: 'CH54321', parcelNumber: '50', mapSheetNumber: '22', landType: 'Đất thương mại, dịch vụ', address: '789 Đường DEF, Phường Thanh Liệt, Thanh Trì, Hà Nội' },
 ];
 
+const getMockData = () => MOCK_LAND_RECORDS;
 const LandRegistry = () => {
-  const user = JSON.parse(localStorage.getItem('user_info') || '{}');
-  
-  // Navigation State
-  const [view, setView] = useState('list'); // 'list' | 'detail'
-  
-  // Modal States
+  const { user } = useUserInfo();
+
+  // States
+  const [view, setView] = useState('list');
+  const [landRecords, setLandRecords] = useState([]);
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState(null);
+
+  // Modal & Filter States
   const [showAdvancedSearch, setShowAdvancedSearch] = useState(false);
   const [showPushDataModal, setShowPushDataModal] = useState(false);
-  const [pushDataMethod, setPushDataMethod] = useState(null); // 'excel' | 'manual' | null
-  
-  // Filter/Search States
+  const [pushDataMethod, setPushDataMethod] = useState(null);
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedRecord, setSelectedRecord] = useState(null);
+
+  // ==================== GỌI API ====================
+  useEffect(() => {
+    const fetchLandParcels = async () => {
+      setLoading(true);
+      setError(null);
+      try {
+        // Giả định endpoint lấy tất cả thửa đất là /api/land-parcels
+        const res = await fetch(`${API_BASE}/land-parcels`, { headers: getAuth() });
+        if (res.ok) {
+          const responseData = await res.json();
+          const records = Array.isArray(responseData) ? responseData : (responseData.data || []);
+          setLandRecords(records);
+        } else {
+          throw new Error(`Lỗi HTTP: ${res.status}`);
+        }
+      } catch (err) {
+        console.error("Lỗi khi tải danh sách thửa đất:", err);
+        setError("Không thể tải dữ liệu từ server. Đang hiển thị dữ liệu mẫu.");
+        setLandRecords(getMockData()); // Fallback to mock data
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    if (view === 'list') {
+      fetchLandParcels();
+    }
+  }, [view]);
 
   const handleViewDetail = (record) => {
     setSelectedRecord(record);
@@ -32,6 +67,16 @@ const LandRegistry = () => {
     setPushDataMethod(null);
     setShowPushDataModal(true);
   };
+
+  // Filter theo search
+  const filteredRecords = landRecords.filter(record => {
+    const search = searchQuery.toLowerCase();
+    return (
+      (record.certificateCode || '').toLowerCase().includes(search) ||
+      (record.parcelNumber || '').toLowerCase().includes(search) ||
+      (record.address || '').toLowerCase().includes(search)
+    );
+  });
 
   // --- VIEW: DANH SÁCH ---
   if (view === 'list') {
@@ -58,32 +103,9 @@ const LandRegistry = () => {
                 />
               </div>
 
-              <div style={{ position: 'relative' }}>
-                <button style={btnDarkRedStyle} onClick={() => setShowAdvancedSearch(!showAdvancedSearch)}>
-                  <i className="bi bi-sliders"></i> Tìm kiếm nâng cao
-                </button>
-
-                {/* Advanced Search Popover */}
-                {showAdvancedSearch && (
-                  <div style={popoverStyle}>
-                    <h4 style={{ margin: '0 0 20px 0', fontSize: 16, fontWeight: 800, color: '#1e293b' }}>Tìm kiếm nâng cao</h4>
-                    <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
-                      <FormInput label="Số vào sổ cấp GCN số" placeholder="Nhập số vào sổ..." />
-                      <FormInput label="Thửa đất số" placeholder="Nhập số thửa..." />
-                      <FormInput label="Tờ bản đồ số" placeholder="Nhập số tờ bản đồ..." />
-                      <div>
-                        <label style={labelStyle}>Loại đất</label>
-                        <select style={inputBaseStyle}><option>Tất cả</option></select>
-                      </div>
-                      <FormInput label="Địa chỉ" placeholder="Nhập địa chỉ thửa đất..." />
-                    </div>
-                    <div style={{ display: 'flex', gap: 12, marginTop: 24, justifyContent: 'flex-end' }}>
-                      <button style={btnCancelStyle} onClick={() => setShowAdvancedSearch(false)}>Xóa bộ lọc</button>
-                      <button style={btnSaveRedStyle} onClick={() => setShowAdvancedSearch(false)}>Đóng</button>
-                    </div>
-                  </div>
-                )}
-              </div>
+              <button style={btnDarkRedStyle} onClick={() => setShowAdvancedSearch(!showAdvancedSearch)}>
+                <i className="bi bi-sliders"></i> Tìm kiếm nâng cao
+              </button>
 
               <button style={btnRedOutlineStyle} onClick={handleOpenPushData}>
                 <i className="bi bi-upload"></i> Đẩy dữ liệu
@@ -93,34 +115,54 @@ const LandRegistry = () => {
 
           {/* Table */}
           <div style={tableCardStyle}>
-            <table style={tableStyle}>
-              <thead>
-                <tr style={thRowStyle}>
-                  <th style={thCellStyle}>SỐ VÀO SỔ CẤP GCN SỐ</th>
-                  <th style={thCellStyle}>THỬA ĐẤT SỐ</th>
-                  <th style={thCellStyle}>TỜ BẢN ĐỒ SỐ</th>
-                  <th style={thCellStyle}>LOẠI ĐẤT</th>
-                  <th style={thCellStyle}>ĐỊA CHỈ</th>
-                  <th style={{ ...thCellStyle, textAlign: 'center' }}>THAO TÁC</th>
-                </tr>
-              </thead>
-              <tbody>
-                {MOCK_LAND_RECORDS.map((rec, idx) => (
-                  <tr key={idx} style={tdRowStyle}>
-                    <td style={{ ...tdCellStyle, fontWeight: 700, color: '#1e293b' }}>{rec.gcn}</td>
-                    <td style={tdCellStyle}>{rec.lot}</td>
-                    <td style={tdCellStyle}>{rec.mapSheet}</td>
-                    <td style={{ ...tdCellStyle, color: '#64748b' }}>{rec.type}</td>
-                    <td style={{ ...tdCellStyle, color: '#64748b' }}>{rec.address}</td>
-                    <td style={{ ...tdCellStyle, textAlign: 'center' }}>
-                      <button style={iconBtnStyle} onClick={() => handleViewDetail(rec)}>
-                        <i className="bi bi-eye"></i>
-                      </button>
-                    </td>
+            {loading ? (
+              <div style={{ padding: '60px', textAlign: 'center', color: '#64748b' }}>
+                Đang tải dữ liệu...
+              </div>
+            ) : error ? (
+              <div style={{ padding: '60px', textAlign: 'center', color: '#ef4444' }}>
+                {error}
+              </div>
+            ) : (
+              <table style={tableStyle}>
+                <thead>
+                  <tr style={thRowStyle}>
+                    <th style={thCellStyle}>SỐ VÀO SỔ / GCN</th>
+                    <th style={thCellStyle}>THỬA ĐẤT SỐ</th>
+                    <th style={thCellStyle}>TỜ BẢN ĐỒ</th>
+                    <th style={thCellStyle}>LOẠI ĐẤT</th>
+                    <th style={thCellStyle}>ĐỊA CHỈ</th>
+                    <th style={{ ...thCellStyle, textAlign: 'center' }}>THAO TÁC</th>
                   </tr>
-                ))}
-              </tbody>
-            </table>
+                </thead>
+                <tbody>
+                  {filteredRecords.map((rec, idx) => {
+                    return (
+                      <tr key={rec.id || idx} style={tdRowStyle}>
+                        <td style={{ ...tdCellStyle, fontWeight: 700, color: '#1e293b' }}>{rec.certificateCode || 'N/A'}</td>
+                        <td style={tdCellStyle}>{rec.parcelNumber || 'N/A'}</td>
+                        <td style={tdCellStyle}>{rec.mapSheetNumber || 'N/A'}</td>
+                        <td style={{ ...tdCellStyle, color: '#64748b' }}>{rec.landType || 'Không xác định'}</td>
+                        <td style={{ ...tdCellStyle, color: '#64748b' }}>{rec.address || 'Chưa có địa chỉ'}</td>
+                        <td style={{ ...tdCellStyle, textAlign: 'center' }}>
+                          <button style={iconBtnStyle} onClick={() => handleViewDetail(rec)}>
+                            <i className="bi bi-eye"></i>
+                          </button>
+                        </td>
+                      </tr>
+                    );
+                  })}
+
+                  {filteredRecords.length === 0 && (
+                    <tr>
+                      <td colSpan="6" style={{ textAlign: 'center', padding: '60px', color: '#94a3b8' }}>
+                        Không tìm thấy thửa đất nào
+                      </td>
+                    </tr>
+                  )}
+                </tbody>
+              </table>
+            )}
           </div>
         </div>
 
@@ -252,11 +294,27 @@ const LandRegistry = () => {
     );
   }
 
-  // --- VIEW: CHI TIẾT --- (Phần này giữ nguyên logic như bản trước)
+  // --- VIEW CHI TIẾT ---
   if (view === 'detail' && selectedRecord) {
-    // ... Giữ nguyên phần Return của Chi tiết đất đai
-    return <div>...</div>; 
+    return (
+      <CadastralLayout user={user}>
+        <div style={{ padding: '30px 40px' }}>
+          <button 
+            onClick={() => setView('list')} 
+            style={{ marginBottom: 20, padding: '8px 16px', background: '#b91c1c', color: '#fff', border: 'none', borderRadius: 8 }}
+          >
+            ← Quay lại danh sách
+          </button>
+          <h2>Chi tiết thửa đất</h2>
+          <pre style={{ background: '#f8fafc', padding: 20, borderRadius: 8 }}>
+            {JSON.stringify(selectedRecord, null, 2)}
+          </pre>
+        </div>
+      </CadastralLayout>
+    );
   }
+
+  return null;
 };
 
 // --- SUB-COMPONENTS ---

@@ -1,7 +1,7 @@
 import React, { useEffect, useState, useRef } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
 
-const CadastralOfficerLayout = ({ children, user }) => {
+const CadastralLayout = ({ children, user }) => {
   const [isDropdownOpen, setIsDropdownOpen] = useState(false);
   const dropdownRef = useRef(null);
 
@@ -127,12 +127,12 @@ const CadastralOfficerLayout = ({ children, user }) => {
           <div style={{ padding: '15px 12px' }}>
             <NavItem
               active={
-                location.pathname === '/cadastral-dashboard' ||
+                
                 location.pathname === '/dashboard'
               }
               icon="bi-grid-3x3-gap-fill"
               label="Bảng điều khiển"
-              onClick={() => navigate('/cadastral-dashboard')}
+              onClick={() => navigate('/dashboard')}
             />
 
             <NavItem
@@ -334,4 +334,4 @@ const styles = {
   },
 };
 
-export default CadastralOfficerLayout;
+export default CadastralLayout;

@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
-import CadastralOfficerLayout from '../../components/CadastralLayout';
+import CadastralLayout from '../../components/CadastralLayout';
+import { useUserInfo } from '../../../hooks/useUserInfo';
 // --- MOCK DATA ---
 const MOCK_TABLE_DATA = [
   { id: 1, unit: 'Thanh Liệt', total: 450, resolved: 420, pending: 30, rate: 93 },
@@ -13,8 +14,9 @@ const CadastralReportStats = () => {
   // Navigation & Modal States
   const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
   const [reportFormat, setReportFormat] = useState('pdf');
-
+  const { user } = useUserInfo(); 
   return (
+    <CadastralLayout user={user}>
     <div style={{ backgroundColor: '#f8fafc', minHeight: '100vh', padding: '30px 40px', fontFamily: 'Inter, sans-serif' }}>
       
       {/* --- HEADER --- */}
@@ -318,6 +320,7 @@ const CadastralReportStats = () => {
       )}
 
     </div>
+    </CadastralLayout>
   );
 };
 

@@ -332,4 +332,42 @@ const getStatusBadge = (s) => ({
   color: s === 'ĐÃ NỘP' ? '#166534' : '#1e40af'
 });
 
+const modalOverlay = { position: 'fixed', top: 0, left: 0, width: '100%', height: '100%', background: 'rgba(0,0,0,0.5)', display: 'flex', justifyContent: 'center', alignItems: 'center', zIndex: 1000 };
+const modalContent = { background: '#fff', width: 700, borderRadius: 32, overflow: 'hidden', position: 'relative' };
+const modalHeader = { padding: '30px 30px 10px', display: 'flex', justifyContent: 'space-between', alignItems: 'center' };
+const idBadge = { background: '#fef2f2', color: '#ef4444', padding: '2px 8px', borderRadius: 8, fontSize: 12, fontWeight: 700 };
+const modalBody = { padding: 30, maxHeight: '70vh', overflowY: 'auto' };
+const sectionCard = { background: '#f8fafc', borderRadius: 20, padding: 20, border: '1px solid #f1f5f9' };
+const iconBox = { width: 32, height: 32, background: '#f0fdf4', color: '#22c55e', display: 'flex', justifyContent: 'center', alignItems: 'center', borderRadius: 8 };
+const grid3 = { display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: '20px 15px' };
+const financeBox = { background: '#1e293b', color: '#fff', padding: 30, borderRadius: 32 };
+const financeRow = { display: 'flex', justifyContent: 'space-between', marginBottom: 10, fontSize: 14 };
+const divider = { height: 1, background: 'rgba(255,255,255,0.1)', margin: '15px 0' };
+const totalHighlightBox = { marginTop: 25, display: 'flex', justifyContent: 'flex-end' };
+const modalFooter = { padding: '20px 30px', borderTop: '1px solid #f1f5f9', display: 'flex', justifyContent: 'space-between' };
+const btnOutline = { border: '1px solid #1e293b', background: '#fff', padding: '10px 20px', borderRadius: 12, fontWeight: 700, cursor: 'pointer' };
+const btnGray = { background: '#94a3b8', color: '#fff', border: 'none', padding: '10px 20px', borderRadius: 12, fontWeight: 700 };
+const btnSecondary = { background: '#fff', border: '1px solid #e2e8f0', padding: '10px 25px', borderRadius: 12, fontWeight: 700, cursor: 'pointer' };
+
+const cardReconStyle = { background: '#fff', borderRadius: 32, padding: 60, border: '1px solid #f1f5f9' };
+const uploadBox = { border: '2px dashed #e2e8f0', width: 400, borderRadius: 24, padding: 40, textAlign: 'center' };
+const btnBrowse = { background: '#1e293b', color: '#fff', border: 'none', padding: '10px 20px', borderRadius: 8, marginTop: 15, fontWeight: 700 };
+const inputStyle = { width: '100%', padding: '12px', borderRadius: 12, border: '1px solid #e2e8f0', outline: 'none' };
+const formGroup = { marginBottom: 20 };
+const btnPrimaryDisabled = { background: '#fca5a5', color: '#fff', border: 'none', padding: '12px 30px', borderRadius: 12, fontWeight: 700 };
+const btnBack = { width: 40, height: 40, borderRadius: '50%', border: 'none', background: '#f8fafc', cursor: 'pointer' };
+
+const statsGrid = { display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 20, marginBottom: 25 };
+const statCard = { padding: 30, borderRadius: 24, textAlign: 'center', border: '1px solid #f1f5f9' };
+const cardReconResult = { background: '#fff', borderRadius: 32, border: '1px solid #f1f5f9' };
+const miniTabs = { display: 'flex', gap: 5, background: '#f8fafc', padding: 4, borderRadius: 10 };
+const miniTab = { background: 'none', border: 'none', padding: '6px 12px', fontSize: 12, fontWeight: 600, color: '#64748b' };
+const miniTabActive = { ...miniTab, background: '#ef4444', color: '#fff', borderRadius: 8 };
+const reconTable = { width: '100%', borderCollapse: 'collapse', borderTop: '1px solid #f1f5f9' };
+const btnActionRed = { background: '#ef4444', color: '#fff', border: 'none', padding: '6px 15px', borderRadius: 8, fontWeight: 700, fontSize: 12 };
+const btnActionGreen = { background: '#22c55e', color: '#fff', border: 'none', padding: '6px 15px', borderRadius: 8, fontWeight: 700, fontSize: 12 };
+const successBadge = { background: '#f0fdf4', color: '#16a34a', padding: '8px 15px', borderRadius: 8, fontSize: 12, fontWeight: 700, width: '100%', display: 'block' };
+const errorBadge = { background: '#fef2f2', color: '#dc2626', padding: '8px 15px', borderRadius: 8, fontSize: 12, fontWeight: 700, width: '100%', display: 'block' };
+const btnPrimarySmall = { background: '#a30d11', color: '#fff', border: 'none', padding: '10px 15px', borderRadius: 8, fontWeight: 700, fontSize: 13 };
+
 export default PaymentManagement;

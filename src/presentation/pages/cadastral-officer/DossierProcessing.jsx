@@ -1,5 +1,9 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import CadastralLayout from '../../components/CadastralLayout';
+import { useUserInfo } from '../../../hooks/useUserInfo';
+
+const API_BASE = 'http://localhost:8080/api';
+const getAuth = () => ({ 'Content-Type': 'application/json', Authorization: `Bearer ${localStorage.getItem('token')}` });
 
 // --- MOCK DATA ---
 const MOCK_DOSSIERS = [
@@ -11,18 +15,79 @@ const MOCK_DOSSIERS = [
 ];
 
 const DossierProcessing = () => {
-  const user = JSON.parse(localStorage.getItem('user_info') || '{}');
+  const { user } = useUserInfo();
+  // const user = JSON.parse(localStorage.getItem('user_info') || '{}');
   
   // Navigation States
   const [view, setView] = useState('list'); // 'list' | 'detail'
   
   // UI States
-  const [activeTab, setActiveTab] = useState('Tất cả');
+  const [activeTab, setActiveTab] = useState('Chờ duyệt');
   const [showAdvancedSearch, setShowAdvancedSearch] = useState(false);
   const [showPdfPreview, setShowPdfPreview] = useState(false);
+  
+  // Data States
   const [selectedDossier, setSelectedDossier] = useState(null);
+  const [dossierDetails, setDossierDetails] = useState(null);
+  const [dossiers, setDossiers] = useState([]);
+  const [loading, setLoading] = useState(false);
+  const [detailLoading, setDetailLoading] = useState(false);
+
+  useEffect(() => {
+    const fetchRecords = async () => {
+      setLoading(true);
+      try {
+        const res = await fetch(`${API_BASE}/records/submitted`, { headers: getAuth() });
+        if (res.ok) {
+          const data = await res.json();
+          const formatted = data.map(item => ({
+            id: `HS-${String(item.recordId).padStart(5, '0')}`,
+            rawId: item.recordId,
+            name: `Công dân ID: ${item.citizenId}`,
+            type: item.recordCategory || 'Hồ sơ địa chính',
+            priority: '-', // API chưa có độ ưu tiên
+            date: item.submittedAt ? new Date(item.submittedAt).toLocaleDateString('vi-VN') : '—',
+            status: item.currentStatus || 'SUBMITTED',
+            originalData: item
+          }));
+          setDossiers(formatted);
+        } else {
+          setDossiers(MOCK_DOSSIERS);
+        }
+      } catch (e) {
+        console.error("Lỗi khi tải hồ sơ:", e);
+        setDossiers(MOCK_DOSSIERS);
+      } finally {
+        setLoading(false);
+      }
+    };
+    
+    if (view === 'list') {
+      fetchRecords();
+    }
+  }, [view]);
+
+  const fetchDossierDetails = async (recordId) => {
+    setDetailLoading(true);
+    setDossierDetails(null);
+    try {
+      const res = await fetch(`${API_BASE}/records/${recordId}`, { headers: getAuth() });
+      if (res.ok) {
+        const data = await res.json();
+        setDossierDetails(data);
+      } else {
+        console.error("Không thể tải chi tiết hồ sơ");
+        // Có thể set một object lỗi để hiển thị
+      }
+    } catch (error) {
+      console.error("Lỗi API khi tải chi tiết hồ sơ:", error);
+    } finally {
+      setDetailLoading(false);
+    }
+  };
 
   const handleViewDetail = (dossier) => {
+    fetchDossierDetails(dossier.rawId);
     setSelectedDossier(dossier);
     setView('detail');
   };
@@ -112,26 +177,30 @@ const DossierProcessing = () => {
                 </tr>
               </thead>
               <tbody>
-                {MOCK_DOSSIERS.map((item, idx) => (
-                  <tr key={idx} style={tdRowStyle}>
-                    <td style={{ ...tdCellStyle, fontWeight: 700, color: '#1e293b' }}>
-                      {item.id}
-                      {item.warning && <i className="bi bi-exclamation-triangle" style={{ color: '#f59e0b', marginLeft: 8 }}></i>}
-                    </td>
-                    <td style={{ ...tdCellStyle, fontWeight: 700 }}>{item.name}</td>
-                    <td style={{ ...tdCellStyle, color: '#64748b' }}>{item.type}</td>
-                    <td style={tdCellStyle}>
-                      {item.priority !== '-' ? <span style={getPriorityBadge(item.priority)}>{item.priority}</span> : '-'}
-                    </td>
-                    <td style={{ ...tdCellStyle, color: '#64748b' }}>{item.date}</td>
-                    <td style={tdCellStyle}><span style={getStatusBadge(item.status)}>{item.status}</span></td>
-                    <td style={{ ...tdCellStyle, textAlign: 'center' }}>
-                      <button style={iconBtnStyle} onClick={() => handleViewDetail(item)}>
-                        <i className="bi bi-eye"></i>
-                      </button>
-                    </td>
-                  </tr>
-                ))}
+                {loading ? (
+                  <tr><td colSpan="7" style={{ textAlign: 'center', padding: '40px', color: '#64748b' }}>Đang tải dữ liệu...</td></tr>
+                ) : dossiers.length === 0 ? (
+                  <tr><td colSpan="7" style={{ textAlign: 'center', padding: '40px', color: '#64748b' }}>Không có hồ sơ nào đang chờ duyệt</td></tr>
+                ) : (
+                  dossiers.map((item, idx) => (
+                    <tr key={idx} style={tdRowStyle}>
+                      <td style={{ ...tdCellStyle, fontWeight: 700, color: '#1e293b' }}>
+                        {item.id}
+                        {item.warning && <i className="bi bi-exclamation-triangle" style={{ color: '#f59e0b', marginLeft: 8 }}></i>}
+                      </td>
+                      <td style={{ ...tdCellStyle, fontWeight: 700 }}>{item.name}</td>
+                      <td style={{ ...tdCellStyle, color: '#64748b' }}>{item.type}</td>
+                      <td style={tdCellStyle}>
+                        {item.priority !== '-' ? <span style={getPriorityBadge(item.priority)}>{item.priority}</span> : '-'}
+                      </td>
+                      <td style={{ ...tdCellStyle, color: '#64748b' }}>{item.date}</td>
+                      <td style={tdCellStyle}><span style={getStatusBadge(item.status)}>{item.status}</span></td>
+                      <td style={{ ...tdCellStyle, textAlign: 'center' }}>
+                        <button style={iconBtnStyle} onClick={() => handleViewDetail(item)}><i className="bi bi-eye"></i></button>
+                      </td>
+                    </tr>
+                  ))
+                )}
               </tbody>
             </table>
           </div>
@@ -142,6 +211,11 @@ const DossierProcessing = () => {
 
   // ================= VIEW: CHI TIẾT =================
   if (view === 'detail' && selectedDossier) {
+    const d = dossierDetails; // 'd' là viết tắt của details
+    const formatDate = (dateStr) => dateStr ? new Date(dateStr).toLocaleDateString('vi-VN') : '—';
+    const formatCurrency = (num) => num ? `${Number(num).toLocaleString('vi-VN')} VNĐ` : '0 VNĐ';
+    const formatArea = (num) => num ? `${num}m²` : '—';
+
     return (
       <CadastralLayout user={user}>
         <div style={containerStyle}>
@@ -160,90 +234,84 @@ const DossierProcessing = () => {
             </div>
           </div>
 
-          <div style={{ display: 'grid', gridTemplateColumns: '2.5fr 1fr', gap: 24 }}>
-            {/* Cột trái (Thông tin) */}
-            <div style={{ display: 'flex', flexDirection: 'column', gap: 24 }}>
-              
-              {/* Thông tin chung */}
-              <div style={cardStyle}>
-                <SectionHeader icon="file-earmark-text" title="Thông tin chung hồ sơ" badge="ƯU TIÊN: CAO" badgeColor="#fee2e2" badgeTextColor="#dc2626" />
-                <div style={grid4Col}>
-                  <InfoItem label="MÃ HỒ SƠ" value="HS-2026-001" bold />
-                  <InfoItem label="NGƯỜI NỘP HỒ SƠ" value="Nguyễn Văn An" bold />
-                  <InfoItem label="LOẠI HỒ SƠ" value="Chuyển nhượng quyền sử dụng đất" />
-                  <InfoItem label="SỐ CCCD" value="001090123456" />
-                  <InfoItem label="NGÀY TIẾP NHẬN" value="20/03/2026" />
-                  <InfoItem label="TRẠNG THÁI HIỆN TẠI" value="Chờ duyệt" color="#3b82f6" />
-                  <InfoItem label="ĐỐI TƯỢNG MIỄN THUẾ" value="Không có" color="#dc2626" />
+          {detailLoading ? (
+            <div style={{ textAlign: 'center', padding: '80px', background: '#fff', borderRadius: 16, border: '1px solid #e2e8f0' }}>
+              <div className="spinner-border text-danger" role="status"></div>
+              <p style={{ marginTop: 20, color: '#64748b' }}>Đang tải chi tiết hồ sơ...</p>
+            </div>
+          ) : !d ? (
+            <div style={{ textAlign: 'center', padding: '80px', background: '#fff', borderRadius: 16, border: '1px solid #e2e8f0', color: '#dc2626' }}>
+              <i className="bi bi-x-circle" style={{ fontSize: 40 }}></i>
+              <p style={{ marginTop: 20 }}>Không thể tải được dữ liệu chi tiết của hồ sơ này.</p>
+            </div>
+          ) : (
+            <div style={{ display: 'grid', gridTemplateColumns: '2.5fr 1fr', gap: 24 }}>
+              {/* Cột trái (Thông tin) */}
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 24 }}>
+                
+                {/* Thông tin chung */}
+                <div style={cardStyle}>
+                  <SectionHeader icon="file-earmark-text" title="Thông tin chung hồ sơ" />
+                  <div style={grid4Col}>
+                    <InfoItem label="MÃ HỒ SƠ" value={`HS-${String(d.recordId).padStart(5, '0')}`} bold />
+                    <InfoItem label="NGƯỜI NỘP HỒ SƠ" value={d.citizenInfo?.fullName} bold />
+                    <InfoItem label="LOẠI HỒ SƠ" value={d.recordInfo?.recordCategory} />
+                    <InfoItem label="SỐ CCCD" value={d.citizenInfo?.cccd} />
+                    <InfoItem label="NGÀY TIẾP NHẬN" value={formatDate(d.recordInfo?.submittedAt)} />
+                    <InfoItem label="TRẠNG THÁI HIỆN TẠI" value={d.recordInfo?.currentStatus} color="#3b82f6" />
+                    <InfoItem label="ĐỐI TƯỢNG MIỄN THUẾ" value={d.recordInfo?.taxExemption || 'Không'} color={d.recordInfo?.taxExemption ? '#10b981' : '#dc2626'} />
+                  </div>
+                </div>
+
+                {/* Thông tin thửa đất */}
+                <div style={cardStyle}>
+                  <SectionHeader icon="geo-alt" title="Thông tin thửa đất khai thuế" />
+                  <div style={grid3Col}>
+                    <InfoItemBox label="THỬA ĐẤT SỐ" value={d.landParcelInfo?.parcelNumber} />
+                    <InfoItemBox label="TỜ BẢN ĐỒ SỐ" value={d.landParcelInfo?.mapSheetNumber} />
+                    <InfoItemBox label="DIỆN TÍCH" value={formatArea(d.landParcelInfo?.area)} />
+                    <InfoItemBox label="LOẠI ĐẤT" value={d.landParcelInfo?.landType} />
+                    <InfoItemBox label="HÌNH THỨC SỬ DỤNG" value={d.landParcelInfo?.usageType} />
+                  </div>
+                  <div style={{ marginTop: 20 }}>
+                    <InfoItemBox label="ĐỊA CHỈ THỬA ĐẤT" value={d.landParcelInfo?.address} />
+                  </div>
+                </div>
+
+                {/* Thông tin tài chính */}
+                <div style={cardStyle}>
+                  <SectionHeader icon="currency-dollar" title="Thông tin nghĩa vụ tài chính" />
+                  <div style={grid4Col}>
+                    <InfoItemBox label="GIÁ ĐẤT ÁP DỤNG" value={`${formatCurrency(d.financialInfo?.landPrice)}/m²`} />
+                    <InfoItemBox label="HỆ SỐ ĐIỀU CHỈNH" value={d.financialInfo?.adjustmentFactor} />
+                    <InfoItemBox label="MIỄN GIẢM" value={formatCurrency(d.financialInfo?.reductionAmount)} color="#10b981" />
+                  </div>
+                </div>
+
+                {/* Hồ sơ đính kèm */}
+                <div style={cardStyle}>
+                  <SectionHeader icon="check-square" title="Danh mục hồ sơ đính kèm" />
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+                    {d.attachments?.map((file, i) => (
+                      <FileItem key={i} name={file.name} status={file.status} />
+                    ))}
+                  </div>
                 </div>
               </div>
 
-              {/* Thông tin thửa đất */}
-              <div style={cardStyle}>
-                <SectionHeader icon="geo-alt" title="Thông tin thửa đất khai thuế" />
-                <div style={grid3Col}>
-                  <InfoItemBox label="THỬA ĐẤT SỐ" value="45" />
-                  <InfoItemBox label="TỜ BẢN ĐỒ SỐ" value="12" />
-                  <InfoItemBox label="DIỆN TÍCH" value="120m2" />
-                  <InfoItemBox label="LOẠI ĐẤT" value="Đất ở tại đô thị" />
-                  <InfoItemBox label="HÌNH THỨC SỬ DỤNG" value="Sử dụng riêng" />
-                </div>
-                <div style={{ marginTop: 20 }}>
-                  <InfoItemBox label="ĐỊA CHỈ THỬA ĐẤT" value="Phường Thanh Liệt, Huyện Thanh Trì, TP. Hà Nội" />
-                </div>
-              </div>
-
-              {/* Thông tin tài chính */}
-              <div style={cardStyle}>
-                <SectionHeader icon="currency-dollar" title="Thông tin nghĩa vụ tài chính" />
-                <div style={grid4Col}>
-                  <InfoItemBox label="GIÁ ĐẤT" value="2%" />
-                  <InfoItemBox label="GIÁ ĐẤT" value="30,000,000 VNĐ/m2" />
-                  <InfoItemBox label="HỆ SỐ ĐIỀU CHỈNH" value="1.2" />
-                  <InfoItemBox label="MIỄN GIẢM" value="0 VNĐ" color="#dc2626" />
-                </div>
-              </div>
-
-              {/* Hồ sơ đính kèm */}
-              <div style={cardStyle}>
-                <SectionHeader icon="check-square" title="Danh mục hồ sơ đính kèm" />
-                <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
-                  <FileItem name="Hợp đồng chuyển nhượng.pdf" status="HỢP LỆ" />
-                  <FileItem name="Giấy chứng nhận QSDĐ.pdf" status="HỢP LỆ" />
-                  <FileItem name="Tờ khai thuế TNCN.pdf" status="CẦN KIỂM TRA" warning />
-                  <FileItem name="Tờ khai lệ phí trước bạ.pdf" status="HỢP LỆ" />
+              {/* Cột phải (Lịch sử) */}
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 24 }}>
+                <div style={cardStyle}>
+                  <SectionHeader icon="clock-history" title="Lịch sử thay đổi hồ sơ" />
+                  <div style={{ paddingLeft: 10 }}>
+                    {d.history?.map((item, index) => (
+                      <TimelineItem key={index} item={item} active={index === d.history.length - 1} />
+                    ))}
+                  </div>
                 </div>
               </div>
             </div>
-
-            {/* Cột phải (Lịch sử) */}
-            <div style={{ display: 'flex', flexDirection: 'column', gap: 24 }}>
-              <div style={cardStyle}>
-                <SectionHeader icon="clock-history" title="Lịch sử thay đổi hồ sơ" />
-                <div style={{ paddingLeft: 10 }}>
-                  <TimelineItem role="NGƯỜI DÂN" roleColor="#a855f7" action="Nộp hồ sơ & Đính kèm tài liệu" time="15/03/2026 09:00" user="Người dân - Nguyễn Văn An" tag="MỚI" />
-                  <TimelineItem role="HỆ THỐNG" roleColor="#94a3b8" action="Tự động so sánh dữ liệu & Phát hiện sai lệch" time="15/03/2026 09:05" user="Hệ thống tự động" tag="CẦN KIỂM TRA" />
-                  <TimelineItem role="CÁN BỘ ĐỊA CHÍNH" roleColor="#f59e0b" action="Kiểm tra thực địa & Chỉnh sửa thông tin" time="18/03/2026 14:30" user="Cán bộ địa chính - Lê Văn M" tag="ĐÃ KIỂM TRA" />
-                  <TimelineItem role="HỆ THỐNG" roleColor="#94a3b8" action="Chuyển hồ sơ sang cơ quan địa chính" time="20/03/2026 08:00" user="Hệ thống tự động" tag="CHỜ DUYỆT" />
-                  <TimelineItem role="CÁN BỘ ĐỊA CHÍNH" roleColor="#f59e0b" action="In phiếu tiếp nhận" time="20/03/2026 22:20" user="Cán bộ địa chính - Trần Văn H" tag="CHỜ DUYỆT" />
-                  <TimelineItem role="CÁN BỘ ĐỊA CHÍNH" roleColor="#f59e0b" action="Tải file PDF phiếu tiếp nhận" time="20/03/2026 22:25" user="Cán bộ địa chính - Trần Văn H" tag="CHỜ DUYỆT" active />
-                </div>
-              </div>
-
-              <div style={cardStyle}>
-                <SectionHeader icon="arrow-repeat" title="Chi tiết thay đổi" />
-                <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 12 }}>
-                  <span style={{ fontSize: 11, fontWeight: 700, color: '#94a3b8' }}>DIỆN TÍCH</span>
-                  <span style={{ fontSize: 11, color: '#94a3b8' }}>18/03/2026 14:15</span>
-                </div>
-                <div style={{ display: 'flex', alignItems: 'center', gap: 16 }}>
-                  <span style={{ color: '#ef4444', textDecoration: 'line-through', fontWeight: 700 }}>100m2</span>
-                  <i className="bi bi-arrow-right" style={{ color: '#94a3b8' }}></i>
-                  <span style={{ color: '#10b981', fontWeight: 700 }}>120m2</span>
-                </div>
-              </div>
-            </div>
-          </div>
+          )}
         </div>
 
         {/* --- MODAL PDF PREVIEW --- */}
@@ -384,21 +452,31 @@ const FileItem = ({ name, status, warning }) => (
   </div>
 );
 
-const TimelineItem = ({ role, roleColor, action, time, user, tag, active }) => (
-  <div style={{ display: 'flex', gap: 16, position: 'relative', paddingBottom: 24 }}>
+const TimelineItem = ({ item, active }) => {
+  const roleMap = {
+    CITIZEN: { name: 'NGƯỜI DÂN', color: '#a855f7' },
+    LAND_OFFICER: { name: 'CÁN BỘ ĐỊA CHÍNH', color: '#f59e0b' },
+    SYSTEM: { name: 'HỆ THỐNG', color: '#64748b' },
+  };
+  const roleInfo = roleMap[item.role] || { name: item.role, color: '#64748b' };
+  const time = item.timestamp ? new Date(item.timestamp).toLocaleString('vi-VN') : '—';
+
+  return (
+    <div style={{ display: 'flex', gap: 16, position: 'relative', paddingBottom: 24 }}>
     <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
       <div style={{ width: 12, height: 12, borderRadius: '50%', backgroundColor: active ? '#2563eb' : '#e2e8f0', zIndex: 2 }}></div>
       <div style={{ width: 2, flex: 1, backgroundColor: '#f1f5f9' }}></div>
     </div>
     <div style={{ flex: 1 }}>
-      <div style={{ fontSize: 9, fontWeight: 800, color: '#fff', backgroundColor: roleColor, padding: '2px 6px', borderRadius: 4, display: 'inline-block', marginBottom: 4 }}>{role}</div>
-      <div style={{ fontSize: 13, fontWeight: 700, color: active ? '#1e293b' : '#475569' }}>{action}</div>
+      <div style={{ fontSize: 9, fontWeight: 800, color: '#fff', backgroundColor: roleInfo.color, padding: '2px 6px', borderRadius: 4, display: 'inline-block', marginBottom: 4 }}>{roleInfo.name}</div>
+      <div style={{ fontSize: 13, fontWeight: 700, color: active ? '#1e293b' : '#475569' }}>{item.action}</div>
       <div style={{ fontSize: 11, color: '#94a3b8', marginTop: 4 }}>{time}</div>
-      <div style={{ fontSize: 11, color: '#64748b', marginTop: 4 }}>Thực hiện bởi: {user}</div>
-      <div style={{ backgroundColor: '#f1f5f9', padding: '2px 8px', borderRadius: 50, fontSize: 9, fontWeight: 800, display: 'inline-block', marginTop: 8, color: '#64748b' }}>{tag}</div>
+      <div style={{ fontSize: 11, color: '#64748b', marginTop: 4 }}>Thực hiện bởi: {item.user}</div>
+      {item.tag && <div style={{ backgroundColor: '#f1f5f9', padding: '2px 8px', borderRadius: 50, fontSize: 9, fontWeight: 800, display: 'inline-block', marginTop: 8, color: '#64748b' }}>{item.tag}</div>}
     </div>
   </div>
-);
+  );
+};
 
 // --- STYLES ---
 

@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import CadastralLayout from '../../components/CadastralLayout';
+import { useUserInfo } from '../../../hooks/useUserInfo';
 
 // Mock Data
 const MOCK_PRICES = [
@@ -9,7 +10,8 @@ const MOCK_PRICES = [
 ];
 
 const LandPriceManagement = () => {
-  const user = JSON.parse(localStorage.getItem('user_info') || '{}');
+  const { user } = useUserInfo();
+  // const user = JSON.parse(localStorage.getItem('user_info') || '{}');
   
   // States điều hướng
   const [view, setView] = useState('list'); // 'list' | 'detail' | 'create'

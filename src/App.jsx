@@ -38,7 +38,11 @@ import ComplaintManagement from './presentation/pages/tax-officer/ComplaintManag
 
 // ==================== IMPORT CÁC TRANG LAND OFFICER ====================
 import LandOfficerDashboard from './presentation/pages/cadastral-officer/CadastralDashboard';
-
+import CadastralReportStats from './presentation/pages/cadastral-officer/CadastralReportStats';
+import ComplaintHandling from './presentation/pages/cadastral-officer/ComplaintHandling';
+import DossierProcessing from './presentation/pages/cadastral-officer/DossierProcessing';
+import LandPriceManagement from './presentation/pages/cadastral-officer/LandPriceManagement';
+import LandRegistry from './presentation/pages/cadastral-officer/LandRegistry';
 import 'bootstrap/dist/css/bootstrap.min.css';
 import 'bootstrap-icons/font/bootstrap-icons.css';
 import './index.css';
@@ -63,6 +67,10 @@ const ProtectedRoute = ({ children, allowedRoles }) => {
     if (role === 'ROLE_TAX_OFFICER') {
       return <Navigate to="/tax-officer/dashboard" replace />;
     }
+    // Land Officer đi lạc vào trang khác -> Đẩy về trang Dashboard của Land Officer
+    if (role === 'ROLE_LAND_OFFICER') {
+      return <Navigate to="/dashboard" replace />;
+    }
     // User đi lạc vào trang khác -> Đẩy về trang chủ User
     return <Navigate to="/home" replace />;
   }
@@ -83,7 +91,7 @@ const AppRoutes = () => {
     } else if (role === 'ROLE_TAX_OFFICER') {
       navigate('/tax-officer/dashboard');
     } else if (role === 'ROLE_LAND_OFFICER') {
-    navigate('/cadastral-officer/dashboard');
+    navigate('/dashboard');
     } else {
       navigate('/home');
     }
@@ -281,12 +289,33 @@ const AppRoutes = () => {
 
       {/* ==================== PROTECTED LAND OFFICER ==================== */}
       <Route 
-        path="/cadastral-officer/dashboard" 
-        element={
-          <ProtectedRoute allowedRoles={['ROLE_LAND_OFFICER']}>
-            <LandOfficerDashboard />
-          </ProtectedRoute>
-        } 
+        path="/dashboard" 
+        element={<ProtectedRoute allowedRoles={['ROLE_LAND_OFFICER']}><LandOfficerDashboard /></ProtectedRoute>} 
+      />
+
+      <Route 
+        path="/cadastral-reports" 
+        element={<ProtectedRoute allowedRoles={['ROLE_LAND_OFFICER']}><CadastralReportStats /></ProtectedRoute>} 
+      />
+
+      <Route 
+        path="/digital-cadastral-map" 
+        element={<ProtectedRoute allowedRoles={['ROLE_LAND_OFFICER']}><LandRegistry /></ProtectedRoute>} 
+      />
+
+      <Route 
+        path="/land-price-management" 
+        element={<ProtectedRoute allowedRoles={['ROLE_LAND_OFFICER']}><LandPriceManagement /></ProtectedRoute>} 
+      />
+
+      <Route 
+        path="/cadastral-records" 
+        element={<ProtectedRoute allowedRoles={['ROLE_LAND_OFFICER']}><DossierProcessing /></ProtectedRoute>} 
+      />
+
+      <Route 
+        path="/cadastral-complaints" 
+        element={<ProtectedRoute allowedRoles={['ROLE_LAND_OFFICER']}><ComplaintHandling /></ProtectedRoute>} 
       />
 
       {/* ==================== FALLBACK ROUTE ==================== */}
@@ -299,7 +328,7 @@ const AppRoutes = () => {
                 : localStorage.getItem('role') === 'ROLE_TAX_OFFICER'
                 ? <Navigate to="/tax-officer/dashboard" replace />
                 : localStorage.getItem('role') === 'ROLE_LAND_OFFICER'
-                ? <Navigate to="/cadastral-officer/dashboard" replace />
+                ? <Navigate to="/dashboard" replace />
                 : <Navigate to="/home" replace />)
             : <Navigate to="/" replace />
         }

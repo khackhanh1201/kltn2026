@@ -11,3 +11,7 @@ html, body, #root {
   overflow-x: hidden; /* Chống lệch ngang */
   background-color: #f4f1e9; /* Màu nền kem chuẩn mẫu */
 }
+
+body, * {
+  font-family: 'Roboto', 'Segoe UI', Arial, sans-serif !important;
+}
